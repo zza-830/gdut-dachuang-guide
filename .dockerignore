@@ -1,0 +1,27 @@
+# ============================================
+# Docker Ignore - 前端构建上下文
+# ============================================
+
+node_modules
+server
+.git
+.gitignore
+.vscode
+.env*
+!.env.docker
+
+# Docker 相关
+docker-compose.yml
+Dockerfile
+server/Dockerfile
+README_DOCKER.md
+README.md
+
+# 构建产物
+dist
+
+# 其他
+_archive_unused
+docs
+mysql-init
+*.md

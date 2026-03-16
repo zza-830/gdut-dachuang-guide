@@ -1,0 +1,521 @@
+/* Enhanced for full process flow - SaaS Dashboard App Styles */
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--main-bg);
+}
+
+.main-content-wrapper {
+  display: flex;
+  flex: 1;
+  margin-top: 0;
+}
+
+.main-content {
+  background-color: var(--main-bg);
+  padding: 20px;
+  min-height: 100vh;
+  width: calc(100% - 240px);
+  max-width: calc(100% - 240px);
+  margin-left: 240px;
+  transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
+}
+
+@media (max-width: 767px) {
+  .main-content {
+    width: 100% !important;
+    margin-left: 0 !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .main-content-wrapper .main-content {
+    margin-left: 0 !important;
+    padding: 0.5rem !important;
+  }
+  
+  /* Hide desktop sidebar on mobile */
+  .d-md-block {
+    display: none !important;
+  }
+}
+
+/* ─── Mobile Header Bar ─── */
+.mobile-header {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1010;
+    height: 52px;
+    padding: 0 12px;
+    background: linear-gradient(to right, #001529, #002140);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .mobile-hamburger {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+  }
+
+  .mobile-hamburger:active {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .mobile-header-title {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+}
+
+/* Touch-friendly interactions */
+@media (hover: none) and (pointer: coarse) {
+  /* Mobile touch devices */
+  .btn, button, a {
+    -webkit-tap-highlight-color: rgba(0, 123, 255, 0.3);
+  }
+  
+  /* Larger touch targets */
+  .form-control, .form-select {
+    min-height: 44px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* Prevent horizontal scroll */
+body {
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for sidebar - CrewCut Style */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #495057 #001F3F;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: #001F3F;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: #495057;
+  border-radius: 3px;
+}
+
+/* Card hover effects */
+.card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: #007BFF;
+  border-color: #007BFF;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+/* Form styles */
+.form-control:focus {
+  border-color: #007BFF;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Table styles */
+.table-hover tbody tr:hover {
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* Accordion styles */
+.accordion-button:not(.collapsed) {
+  background-color: #e7f3ff;
+  color: #007BFF;
+}
+
+/* Loading and animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+/* Page transition animation - Slow Fade In Up */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slowFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+/* Page wrapper animation - Smooth & Responsive */
+.page-transition {
+  animation: slowFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Page transition wrapper */
+.page-transition-wrapper {
+  animation: slowFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Staggered animation for lists */
+.animate-fade-in-up:nth-child(1) { animation-delay: 0s; }
+.animate-fade-in-up:nth-child(2) { animation-delay: 0.1s; }
+.animate-fade-in-up:nth-child(3) { animation-delay: 0.2s; }
+.animate-fade-in-up:nth-child(4) { animation-delay: 0.3s; }
+.animate-fade-in-up:nth-child(5) { animation-delay: 0.4s; }
+
+/* Stepper Styles */
+.stepper-container {
+  position: relative;
+}
+
+.stepper-step {
+  transition: all 0.3s ease;
+}
+
+.stepper-step:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 31, 63, 0.3);
+}
+
+/* Mobile Stepper - Vertical Layout */
+@media (max-width: 767px) {
+  .stepper-container .row {
+    flex-direction: column;
+  }
+  
+  .stepper-container .row > [class*="col-"] {
+    margin-bottom: 20px;
+  }
+  
+  .stepper-container .row > [class*="col-"]:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 60px;
+    width: 3px;
+    height: 40px;
+    background-color: #E6F7FF;
+    transform: translateX(-50%);
+  }
+  
+  .stepper-container .row > [class*="col-"].completed:not(:last-child)::after {
+    background-color: #00BFFF;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Mobile-Only Responsive Overrides (≤767px)
+   Desktop layout is NOT affected by these rules.
+   ═══════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+  /* ─── Main content area adjustments ─── */
+  .main-content {
+    padding: 12px !important;
+    padding-bottom: 56px !important; /* space for fixed footer */
+    min-height: calc(100vh - 52px) !important; /* minus mobile header */
+  }
+
+  .main-content-wrapper {
+    margin-top: 0 !important;
+  }
+
+  /* ─── Home page mobile layout ─── */
+  .home-wrapper {
+    padding: 12px !important;
+    min-height: auto !important;
+  }
+
+  .home-wrapper h1 {
+    font-size: 22px !important;
+  }
+
+  .home-wrapper p {
+    font-size: 14px !important;
+  }
+
+  /* Countdown banner - stack vertically */
+  .home-countdown-banner {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 16px !important;
+    border-radius: 12px !important;
+    gap: 12px !important;
+  }
+
+  .home-countdown-banner h3 {
+    font-size: 18px !important;
+  }
+
+  .home-countdown-banner h3 span {
+    font-size: 24px !important;
+  }
+
+  .home-countdown-banner button {
+    align-self: stretch !important;
+    justify-content: center !important;
+    padding: 10px 16px !important;
+  }
+
+  /* Project hero card - stack vertically */
+  .home-project-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 20px !important;
+    gap: 16px !important;
+    border-radius: 12px !important;
+  }
+
+  .home-project-card > div:first-child {
+    gap: 16px !important;
+  }
+
+  .home-project-card > div:first-child > div:first-child {
+    width: 56px !important;
+    height: 56px !important;
+  }
+
+  .home-project-card button {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 12px 24px !important;
+  }
+
+  /* Feature cards grid - single column */
+  .home-feature-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .home-feature-card {
+    padding: 20px !important;
+    border-radius: 12px !important;
+  }
+
+  .home-feature-card > div:first-child {
+    width: 52px !important;
+    height: 52px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .home-feature-card h3 {
+    font-size: 16px !important;
+  }
+
+  .home-feature-card p {
+    font-size: 13px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .home-feature-card button {
+    padding: 10px 20px !important;
+    font-size: 14px !important;
+  }
+
+  /* ─── ProjectDashboard mobile ─── */
+  .dashboard-row {
+    flex-direction: column !important;
+  }
+
+  .dashboard-row > .col-lg-8,
+  .dashboard-row > .col-lg-4 {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* ─── Cards general mobile ─── */
+  .card {
+    border-radius: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .card .card-body {
+    padding: 16px !important;
+  }
+
+  /* ─── Container fluid padding ─── */
+  .container-fluid.p-4 {
+    padding: 12px !important;
+  }
+
+  /* ─── Footer mobile ─── */
+  footer {
+    height: auto !important;
+    min-height: 40px !important;
+    padding: 8px 0 !important;
+  }
+
+  footer .row {
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+
+  footer .row > div {
+    text-align: center !important;
+  }
+
+  /* ─── Modal mobile ─── */
+  .modal-dialog {
+    margin: 8px !important;
+  }
+
+  .modal-body {
+    padding: 16px !important;
+  }
+
+  /* ─── Table mobile ─── */
+  .table {
+    font-size: 13px !important;
+  }
+
+  .table th,
+  .table td {
+    padding: 8px 6px !important;
+  }
+
+  /* ─── Badge mobile ─── */
+  .badge {
+    font-size: 11px !important;
+  }
+
+  /* ─── Form controls mobile ─── */
+  .form-control,
+  .form-select {
+    font-size: 16px !important; /* Prevents iOS zoom */
+  }
+
+  /* ─── Offcanvas close button fix ─── */
+  .offcanvas-header .btn-close {
+    filter: invert(1);
+  }
+}
+
+/* ─── Small phones (≤375px) ─── */
+@media (max-width: 375px) {
+  .mobile-header-title {
+    font-size: 14px !important;
+  }
+
+  .home-wrapper h1 {
+    font-size: 20px !important;
+  }
+
+  .home-countdown-banner h3 {
+    font-size: 16px !important;
+  }
+
+  .home-countdown-banner h3 span {
+    font-size: 22px !important;
+  }
+
+  .home-feature-card {
+    padding: 16px !important;
+  }
+}
+
+/* Reimbursements Page Layout */
+.reimbursement-layout {
+  margin: 0;
+}
+
+.reimbursement-left-col {
+  padding: 0;
+  padding-right: 16px;
+  margin-bottom: 0;
+}
+
+.reimbursement-right-col {
+  padding: 0;
+  padding-left: 16px;
+}
+
+.reimbursement-content-body {
+  padding: 30px;
+  width: 100%;
+}
+
+/* Mobile Responsive for Reimbursements */
+@media (max-width: 767px) {
+  .reimbursement-left-col {
+    padding-right: 0;
+    margin-bottom: 16px;
+  }
+  
+  .reimbursement-right-col {
+    padding-left: 0;
+  }
+  
+  .reimbursement-content-body {
+    padding: 20px;
+  }
+}

@@ -1,0 +1,91 @@
+# ============================================
+# Docker Compose - 大创指南系统 完整部署
+# ============================================
+# 使用方法:
+#   docker-compose --env-file .env.docker up -d --build
+#
+# 首次部署会自动导入数据库初始化脚本。
+# 如需重置数据库，删除 db_data 卷：
+#   docker-compose down -v
+
+services:
+  # ---- 1. MySQL 数据库 ----
+  db:
+    image: mysql:8.0
+    container_name: dachuang_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      # 自动导入初始 SQL（仅首次启动时执行，按文件名排序）
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-uroot", "-p${MYSQL_ROOT_PASSWORD}", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - dachuang-net
+
+  # ---- 2. Node.js 后端 API ----
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: dachuang_backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: ${BACKEND_PORT:-5000}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    networks:
+      - dachuang-net
+
+  # ---- 3. 前端 (Nginx + React 静态文件) ----
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dachuang_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    networks:
+      - dachuang-net
+
+volumes:
+  db_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  dachuang-net:
+    driver: bridge

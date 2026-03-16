@@ -1,0 +1,43 @@
+文件放置清单
+================
+
+请将您的文件按照以下清单放置到对应目录：
+
+【申报书填写页面 - /guide/application-form】
+位置：templates/
+文件：application-form-template.docx 或 application-form-template.doc
+
+【经费报销页面 - /reimbursements】
+位置：reimbursements/
+文件：
+  - detail-form.xlsx (附件1: 使用明细表)
+  - stockin-form.xlsx (附件2: 入库单)
+  - stockout-form.xlsx (附件3: 出库单)
+  - travel-form.docx (附件4: 出差审批表)
+  - research-form.docx (附件5: 项目调研报告)
+  - reimbursement-guide.pdf (PDF指南)
+
+【资源下载页面 - /resources】
+位置：resources/
+文件：
+  - application-form-template.docx (项目申请表模板)
+  - midterm-report-template.docx (中期报告模板)
+  - conclusion-report-template.docx (结题报告模板)
+  - reimbursement-detail.xlsx (经费报销明细表)
+  - patent-application-guide.pdf (专利申请指南)
+  - project-plan-template.docx (项目计划书模板)
+  - budget-template.xlsx (预算表模板)
+  - cooperation-agreement-template.docx (合作协议模板)
+
+注意：
+1. 文件名必须完全匹配（包括大小写）
+2. 放置文件后，运行 npm run build 重新构建项目
+3. 详细说明请查看项目根目录的"文件放置指南.md"
+
+
+
+
+
+
+
+
