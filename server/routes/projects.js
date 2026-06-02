@@ -6,7 +6,8 @@ const {
   getProjects,
   getProject,
   updateFunding,
-  updateTeam,
+  addMember,
+  removeMember,
   deleteProject,
   renameProject
 } = require('../controllers/projectController');
@@ -23,8 +24,11 @@ router.get('/:id', authenticate, getProject);
 // 更新经费
 router.patch('/:id/funding', authenticate, updateFunding);
 
-// 更新团队成员
-router.patch('/:id/team', authenticate, updateTeam);
+// 添加团队成员
+router.post('/:id/members', authenticate, addMember);
+
+// 移除团队成员
+router.delete('/:id/members/:userId', authenticate, removeMember);
 
 // 重命名项目
 router.patch('/:id/name', authenticate, renameProject);

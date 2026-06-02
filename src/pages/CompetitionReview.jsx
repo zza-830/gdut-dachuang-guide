@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Container, Table, Badge, Spinner, Alert, Modal, Form, Row, Col
+  Container, Table, Badge, Spinner, Alert, Modal, Form, Row, Col, Dropdown, ButtonGroup
 } from 'react-bootstrap';
 import { FaClipboardCheck, FaCalendarAlt, FaCheckCircle } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +44,8 @@ const CompetitionReview = () => {
   const [formEnd, setFormEnd]           = useState('');
   const [submitting, setSubmitting]     = useState(false);
   const [formError, setFormError]       = useState('');
+  
+  const [submittingBatch, setSubmittingBatch] = useState(false);
 
   // 权限守卫：仅 admin 可见
   useEffect(() => {
@@ -86,6 +88,48 @@ const CompetitionReview = () => {
     setCurrent(null);
   };
 
+  // 选项 A：一键已读系统修改
+  const handleBatchConfirmAuto = async () => {
+    if (!window.confirm('确定要将所有已由系统自动修改的赛事标记为已确认吗？\n(仅影响绿色"已自动修改"的赛事)')) return;
+    try {
+      setSubmittingBatch(true);
+      setError('');
+      setSuccess('');
+      const res = await api.post('/competitions/review/batch-dismiss');
+      if (res.data.success) {
+        setSuccess(res.data.message || '已成功确认系统修改项');
+        fetchList();
+      } else {
+        setError(res.data.error || '批量处理失败');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || '批量处理请求失败');
+    } finally {
+      setSubmittingBatch(false);
+    }
+  };
+
+  // 选项 B：一键已读全部
+  const handleBatchConfirmAll = async () => {
+    if (!window.confirm('⚠️ 警告：该操作将清空所有待审核记录，包括需人工核对的项。\n确定要继续吗？')) return;
+    try {
+      setSubmittingBatch(true);
+      setError('');
+      setSuccess('');
+      const res = await api.post('/competitions/review/batch-confirm-all');
+      if (res.data.success) {
+        setSuccess(res.data.message || '已成功确认全部记录');
+        fetchList();
+      } else {
+        setError(res.data.error || '批量处理失败');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || '批量处理请求失败');
+    } finally {
+      setSubmittingBatch(false);
+    }
+  };
+
   // 提交审核
   const handleSubmit = async () => {
     setFormError('');
@@ -120,21 +164,49 @@ const CompetitionReview = () => {
   return (
     <Container className="py-4" style={{ maxWidth: '1100px' }}>
       {/* 页头 */}
-      <div className="d-flex align-items-center gap-3 mb-4">
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '12px',
-          background: 'linear-gradient(135deg, #faad14 0%, #d48806 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <FaClipboardCheck size={22} color="#fff" />
+      <div className="d-flex align-items-center justify-content-between mb-4">
+        <div className="d-flex align-items-center gap-3">
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '12px',
+            background: 'linear-gradient(135deg, #faad14 0%, #d48806 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <FaClipboardCheck size={22} color="#fff" />
+          </div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold' }}>赛事时间审核</h2>
+            <p style={{ margin: 0, color: '#8c8c8c', fontSize: '13px' }}>
+              以下赛事由定时任务自动滚动跨年，请核对起止时间后确认
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold' }}>赛事时间审核</h2>
-          <p style={{ margin: 0, color: '#8c8c8c', fontSize: '13px' }}>
-            以下赛事由定时任务自动滚动跨年，请核对起止时间后确认
-          </p>
-        </div>
+
+        {/* 集成式单按钮 */}
+        {list.length > 0 && (
+          <Dropdown as={ButtonGroup}>
+            <Dropdown.Toggle variant="primary" id="dropdown-custom-components" disabled={submittingBatch} style={{ borderRadius: '8px' }}>
+              {submittingBatch ? <Spinner animation="border" size="sm" style={{ marginRight: '6px' }} /> : null}
+              批量操作
+            </Dropdown.Toggle>
+
+            <Dropdown.Menu align="end" style={{ minWidth: '280px', padding: '8px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+              <Dropdown.Item onClick={handleBatchConfirmAuto} disabled={submittingBatch} style={{ padding: '8px 16px', whiteSpace: 'normal' }}>
+                <div style={{ fontWeight: '600', color: '#1677ff', marginBottom: '4px' }}>一键已读系统修改</div>
+                <div style={{ fontSize: '12px', color: '#8c8c8c', lineHeight: '1.4' }}>
+                  仅将系统已自动滚动时间的赛事标记为已确认，保留需人工核对的赛事。
+                </div>
+              </Dropdown.Item>
+              <Dropdown.Divider />
+              <Dropdown.Item onClick={handleBatchConfirmAll} disabled={submittingBatch} style={{ padding: '8px 16px', whiteSpace: 'normal' }}>
+                <div style={{ fontWeight: '600', color: '#ff4d4f', marginBottom: '4px' }}>一键已读全部</div>
+                <div style={{ fontSize: '12px', color: '#8c8c8c', lineHeight: '1.4' }}>
+                  将列表中所有赛事全部标记为已确认，直接清空审核列表。
+                </div>
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+        )}
       </div>
 
       {error   && <Alert variant="danger"  onClose={() => setError('')}   dismissible>{error}</Alert>}
@@ -155,7 +227,7 @@ const CompetitionReview = () => {
           <Table hover responsive style={{ margin: 0 }}>
             <thead>
               <tr style={{ backgroundColor: '#fffbe6' }}>
-                {['竞赛名称', '级别', '类别', '当前开始时间', '当前结束时间', '截止报名', '操作'].map(h => (
+                {['竞赛名称', '系统状态', '级别', '类别', '当前开始时间', '当前结束时间', '截止报名', '操作'].map(h => (
                   <th key={h} style={{ padding: '13px 14px', fontWeight: '600', fontSize: '13px', color: '#666', whiteSpace: 'nowrap' }}>
                     {h}
                   </th>
@@ -165,7 +237,7 @@ const CompetitionReview = () => {
             <tbody>
               {list.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-5 text-muted">
+                  <td colSpan={8} className="text-center py-5 text-muted">
                     🎉 暂无待审核赛事，所有数据均已核对完毕
                   </td>
                 </tr>
@@ -175,6 +247,13 @@ const CompetitionReview = () => {
                   <tr key={comp.id}>
                     <td style={{ padding: '12px 14px', verticalAlign: 'middle', fontWeight: '500', maxWidth: '280px' }}>
                       {comp.name}
+                    </td>
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                      {comp.start_time && comp.end_time ? (
+                        <Badge bg="success">已自动修改</Badge>
+                      ) : (
+                        <Badge bg="warning" text="dark">需人工核对</Badge>
+                      )}
                     </td>
                     <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
                       <Badge bg={lvl.bg}>{lvl.label}</Badge>
@@ -197,9 +276,9 @@ const CompetitionReview = () => {
                     <td style={{ padding: '12px 14px', verticalAlign: 'middle', fontSize: '13px', color: '#666' }}>
                       {comp.deadline || '-'}
                     </td>
-                    <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                    <td style={{ padding: '12px 14px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                       <CommonButton
-                        variant="warning"
+                        variant="primary"
                         size="sm"
                         onClick={() => handleOpenReview(comp)}
                         style={{ borderRadius: '6px', fontSize: '12px', padding: '4px 14px', color: '#fff' }}

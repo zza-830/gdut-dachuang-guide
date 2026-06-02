@@ -1,97 +1,93 @@
 const { query } = require('../config/db');
 const { logAudit } = require('../utils/auditLog');
 
+const { pool } = require('../config/db');
+
 /**
- * 创建项目 — 只插入创建者为 Leader，不插入任何 mock 成员
+ * 创建项目 — 插入创建者为 captain，并写入 project_members 表
  * POST /api/projects
  */
 const createProject = async (req, res) => {
+  const connection = await pool.getConnection();
   try {
+    await connection.beginTransaction();
     const { title, duration, description } = req.body;
     if (!title || !title.trim()) {
+      await connection.rollback();
+      connection.release();
       return res.status(400).json({ success: false, message: '项目名称不能为空' });
     }
 
-    // JWT only has {id, student_id, role} — fetch full user info from DB
-    const [userInfo] = await query(
-      'SELECT name, email, phone FROM users WHERE id = ?',
+    const [users] = await connection.query(
+      'SELECT name FROM users WHERE id = ?',
       [req.user.id]
     );
-    const userName = userInfo ? userInfo.name : '未知用户';
+    const userName = users.length > 0 ? users[0].name : '未知用户';
 
-    // team_members JSON: only the creator as leader
-    const teamMembers = JSON.stringify([
-      {
-        id: req.user.id,
-        name: userName,
-        role: 'captain',
-        studentId: req.user.student_id || '',
-        email: userInfo?.email || '',
-        phone: userInfo?.phone || '',
-        className: '',
-        lab: ''
-      }
-    ]);
+    const [result] = await connection.query(
+      `INSERT INTO projects (user_id, title, description, status, budget, spent_budget)
+       VALUES (?, ?, ?, 'pending', 0, 0)`,
+      [req.user.id, title.trim(), description || '']
+    );
+    const projectId = result.insertId;
 
-    const result = await query(
-      `INSERT INTO projects (user_id, title, description, team_members, status, budget, spent_budget)
-       VALUES (?, ?, ?, ?, 'pending', 0, 0)`,
-      [req.user.id, title.trim(), description || '', teamMembers]
+    await connection.query(
+      `INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, 'captain')`,
+      [projectId, req.user.id]
     );
 
-    // Audit log — fire and forget, don't block the response
+    await connection.commit();
+
     logAudit({
       userId: req.user.id,
       userName,
       action: 'create_project',
       entityType: 'project',
-      entityId: result.insertId,
-      details: { project_id: result.insertId, name: title.trim() }
+      entityId: projectId,
+      details: { project_id: projectId, name: title.trim() }
     }).catch(err => console.error('[AuditLog] create_project failed:', err.message));
 
     res.status(201).json({
       success: true,
       message: '项目创建成功',
       data: {
-        id: result.insertId,
+        id: projectId,
         title: title.trim(),
         status: 'pending',
         role: '队长'
       }
     });
   } catch (error) {
+    await connection.rollback();
     console.error('Create project error:', error);
     res.status(500).json({ success: false, message: '创建项目失败' });
+  } finally {
+    connection.release();
   }
 };
 
 /**
- * 获取当前用户的项目列表
+ * 获取当前用户的项目列表（包含作为成员参与的项目）
  * GET /api/projects
  */
 const getProjects = async (req, res) => {
   try {
     const projects = await query(
-      `SELECT id, title, status, budget, spent_budget, team_members, created_at
-       FROM projects
-       WHERE user_id = ?
-       ORDER BY created_at DESC`,
+      `SELECT p.id, p.title, p.status, p.budget, p.spent_budget, p.created_at, pm.role 
+       FROM projects p
+       JOIN project_members pm ON p.id = pm.project_id
+       WHERE pm.user_id = ?
+       ORDER BY p.created_at DESC`,
       [req.user.id]
     );
 
     const mapped = projects.map(p => {
-      let role = '队长';
-      try {
-        const members = typeof p.team_members === 'string' ? JSON.parse(p.team_members) : p.team_members;
-        const me = members?.find(m => m.id === req.user.id);
-        role = me?.role === 'captain' ? '队长' : '成员';
-      } catch { /* ignore */ }
-
+      const roleMap = { captain: '队长', member: '成员', advisor: '指导老师' };
       const statusMap = { draft: 'pending', pending: 'pending', approved: 'active', in_progress: 'active', midterm: 'active', concluded: 'completed', rejected: 'pending' };
       return {
         id: p.id,
         name: p.title,
-        role,
+        role: roleMap[p.role] || '成员',
         status: statusMap[p.status] || 'active',
         budget: parseFloat(p.budget) || 0,
         spent_budget: parseFloat(p.spent_budget) || 0,
@@ -107,7 +103,7 @@ const getProjects = async (req, res) => {
 };
 
 /**
- * 获取单个项目详情
+ * 获取单个项目详情及成员
  * GET /api/projects/:id
  */
 const getProject = async (req, res) => {
@@ -124,39 +120,40 @@ const getProject = async (req, res) => {
       return res.status(404).json({ success: false, message: '项目不存在' });
     }
 
-    let teamMembers = [];
-    try {
-      teamMembers = typeof project.team_members === 'string'
-        ? JSON.parse(project.team_members)
-        : (project.team_members || []);
-    } catch { teamMembers = []; }
-
-    // 动态刷新成员姓名：从 users 表获取最新名字
-    if (teamMembers.length > 0) {
-      const memberIds = teamMembers.map(m => m.id).filter(id => id != null);
-      if (memberIds.length > 0) {
-        const placeholders = memberIds.map(() => '?').join(',');
-        const latestUsers = await query(
-          `SELECT id, name, email, phone FROM users WHERE id IN (${placeholders})`,
-          memberIds
-        );
-        const userMap = {};
-        latestUsers.forEach(u => { userMap[u.id] = u; });
-        teamMembers = teamMembers.map(m => {
-          const latest = userMap[m.id];
-          if (latest) {
-            return { ...m, name: latest.name, email: latest.email || m.email, phone: latest.phone || m.phone };
-          }
-          return m;
-        });
-      }
+    // 检查访问权限
+    const authCheck = await query(
+      'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+    if (authCheck.length === 0 && req.user.role !== 'admin') {
+       return res.status(403).json({ success: false, message: '无权访问该项目' });
     }
+
+    const teamMembers = await query(
+      `SELECT u.id, u.name, u.student_id, u.email, u.phone, u.department, u.major, u.grade, pm.role, pm.joined_at
+       FROM project_members pm
+       JOIN users u ON pm.user_id = u.id
+       WHERE pm.project_id = ?`,
+      [req.params.id]
+    );
 
     res.json({
       success: true,
       data: {
         ...project,
-        team_members: teamMembers,
+        currentUserRole: authCheck.length > 0 ? authCheck[0].role : null,
+        team_members: teamMembers.map(m => ({
+          id: m.id,
+          name: m.name,
+          studentId: m.student_id,
+          email: m.email,
+          phone: m.phone,
+          department: m.department,
+          major: m.major,
+          grade: m.grade,
+          role: m.role,
+          joinedAt: m.joined_at
+        })),
         budget: parseFloat(project.budget) || 0,
         spent_budget: parseFloat(project.spent_budget) || 0
       }
@@ -205,66 +202,139 @@ const updateFunding = async (req, res) => {
 };
 
 /**
- * 更新项目团队成员
- * PATCH /api/projects/:id/team
+ * 添加项目成员
+ * POST /api/projects/:id/members
  */
-const updateTeam = async (req, res) => {
+const addMember = async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    const { team_members } = req.body;
-    if (!Array.isArray(team_members)) {
-      return res.status(400).json({ success: false, message: '团队成员数据无效' });
+    const { userId, role } = req.body;
+    const projectId = req.params.id;
+
+    if (!userId) {
+      connection.release();
+      return res.status(400).json({ success: false, message: '必须提供用户ID' });
     }
 
-    // Fetch old team for diff
-    const [proj] = await query('SELECT team_members FROM projects WHERE id = ?', [req.params.id]);
-    let oldTeam = [];
-    try {
-      oldTeam = proj ? (typeof proj.team_members === 'string' ? JSON.parse(proj.team_members) : (proj.team_members || [])) : [];
-    } catch { oldTeam = []; }
+    await connection.beginTransaction();
 
-    await query('UPDATE projects SET team_members = ? WHERE id = ?', [JSON.stringify(team_members), req.params.id]);
-
-    // Compute diff: added / removed members
-    const oldIds = new Set(oldTeam.map(m => m.id));
-    const newIds = new Set(team_members.map(m => m.id));
-    const added = team_members.filter(m => !oldIds.has(m.id)).map(m => m.name);
-    const removed = oldTeam.filter(m => !newIds.has(m.id)).map(m => m.name);
-
-    const pid = parseInt(req.params.id);
-
-    if (added.length > 0) {
-      await logAudit({
-        userId: req.user.id,
-        action: 'add_member',
-        entityType: 'project',
-        entityId: pid,
-        details: { project_id: pid, added_members: added }
-      });
-    }
-    if (removed.length > 0) {
-      await logAudit({
-        userId: req.user.id,
-        action: 'remove_member',
-        entityType: 'project',
-        entityId: pid,
-        details: { project_id: pid, removed_members: removed }
-      });
-    }
-    // If roles changed but no add/remove, log a generic update
-    if (added.length === 0 && removed.length === 0 && JSON.stringify(oldTeam) !== JSON.stringify(team_members)) {
-      await logAudit({
-        userId: req.user.id,
-        action: 'update_team',
-        entityType: 'project',
-        entityId: pid,
-        details: { project_id: pid, member_count: team_members.length }
-      });
+    // 检查是否有权限 (必须是 captain)
+    const [authCheck] = await connection.query(
+      'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, req.user.id]
+    );
+    if (authCheck.length === 0 || authCheck[0].role !== 'captain') {
+       await connection.rollback();
+       connection.release();
+       return res.status(403).json({ success: false, message: '只有本项目的队长可以添加成员' });
     }
 
-    res.json({ success: true, data: { team_members } });
+    // 检查用户是否存在
+    const [users] = await connection.query('SELECT name FROM users WHERE id = ?', [userId]);
+    if (users.length === 0) {
+       await connection.rollback();
+       connection.release();
+       return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+
+    // 检查是否已经是成员
+    const [existing] = await connection.query(
+      'SELECT id FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, userId]
+    );
+    if (existing.length > 0) {
+       await connection.rollback();
+       connection.release();
+       return res.status(400).json({ success: false, message: '该用户已经是项目成员' });
+    }
+
+    await connection.query(
+      'INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)',
+      [projectId, userId, role || 'member']
+    );
+
+    await connection.commit();
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'add_member',
+      entityType: 'project',
+      entityId: parseInt(projectId),
+      details: { project_id: parseInt(projectId), added_user_id: userId, added_user_name: users[0].name }
+    });
+
+    res.json({ success: true, message: '添加成员成功' });
   } catch (error) {
-    console.error('Update team error:', error);
-    res.status(500).json({ success: false, message: '更新团队失败' });
+    await connection.rollback();
+    console.error('Add member error:', error);
+    res.status(500).json({ success: false, message: '添加成员失败' });
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * 移除项目成员
+ * DELETE /api/projects/:id/members/:userId
+ */
+const removeMember = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const projectId = req.params.id;
+    const targetUserId = req.params.userId;
+
+    await connection.beginTransaction();
+
+    // 检查权限
+    const [authCheck] = await connection.query(
+      'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, req.user.id]
+    );
+    if ((authCheck.length === 0 || authCheck[0].role !== 'captain') && req.user.id != targetUserId) {
+       await connection.rollback();
+       connection.release();
+       return res.status(403).json({ success: false, message: '无权移除该成员' });
+    }
+
+    const [target] = await connection.query(
+      'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, targetUserId]
+    );
+    if (target.length === 0) {
+       await connection.rollback();
+       connection.release();
+       return res.status(404).json({ success: false, message: '成员不存在' });
+    }
+    if (target[0].role === 'captain') {
+       await connection.rollback();
+       connection.release();
+       return res.status(400).json({ success: false, message: '不能移除队长，请先转让队长身份' });
+    }
+
+    const [users] = await connection.query('SELECT name FROM users WHERE id = ?', [targetUserId]);
+
+    await connection.query(
+      'DELETE FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, targetUserId]
+    );
+
+    await connection.commit();
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'remove_member',
+      entityType: 'project',
+      entityId: parseInt(projectId),
+      details: { project_id: parseInt(projectId), removed_user_id: targetUserId, removed_user_name: users.length > 0 ? users[0].name : 'Unknown' }
+    });
+
+    res.json({ success: true, message: '移除成员成功' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Remove member error:', error);
+    res.status(500).json({ success: false, message: '移除成员失败' });
+  } finally {
+    connection.release();
   }
 };
 
@@ -331,4 +401,4 @@ const renameProject = async (req, res) => {
   }
 };
 
-module.exports = { createProject, getProjects, getProject, updateFunding, updateTeam, deleteProject, renameProject };
+module.exports = { createProject, getProjects, getProject, updateFunding, addMember, removeMember, deleteProject, renameProject };

@@ -82,19 +82,31 @@ const ProjectDashboard = () => {
   // 成员详情弹窗
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
+
+  // 成员编辑相关
   const [isEditing, setIsEditing] = useState(false);
-  const [editFormData, setEditFormData] = useState({});
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    role: '',
+    className: '',
+    studentId: '',
+    email: '',
+    phone: '',
+    lab: ''
+  });
 
   // 添加成员弹窗
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newMemberData, setNewMemberData] = useState({
-    name: '', role: 'member', className: '', studentId: '', email: '', phone: '', lab: ''
-  });
-
-  // 选择新队长弹窗
-  const [showSelectCaptainModal, setShowSelectCaptainModal] = useState(false);
-  const [pendingDemoteMember, setPendingDemoteMember] = useState(null);
-  const [selectedNewCaptain, setSelectedNewCaptain] = useState(null);
+  const [newMemberId, setNewMemberId] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('member');
+  
+  // 搜索用户相关
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const searchTimeoutRef = useRef(null);
 
   // 添加分类弹窗
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -142,7 +154,12 @@ const ProjectDashboard = () => {
           'completed': '已结题',
           'rejected': '已驳回'
         };
-        setProject({ id: p.id, name: p.title, status: statusMap[p.status] || p.status });
+        setProject({ 
+          id: p.id, 
+          name: p.title, 
+          status: statusMap[p.status] || p.status,
+          currentUserRole: p.currentUserRole
+        });
         setBudgetTotal(p.budget || 0);
         // Note: budgetSpent is set by fetchExpenseTotal (SUM from expenses table)
         setTeamMembers(Array.isArray(p.team_members) ? p.team_members : []);
@@ -482,110 +499,140 @@ const ProjectDashboard = () => {
     return `${d.getMonth() + 1}/${d.getDate()}`;
   };
 
-  // ─── Team member handlers (persist to backend) ───
-  const persistTeam = async (newTeam) => {
-    setTeamMembers(newTeam);
+  // ─── Team member handlers (with REAL database integration) ───
+  const fetchProjectMembers = useCallback(async () => {
     try {
-      await api.patch(`/projects/${id}/team`, { team_members: newTeam });
-      // Refresh audit logs after team change
-      fetchLogs();
+      const res = await api.get(`/projects/${id}`);
+      if (res.data.success) {
+        setTeamMembers(res.data.data.team_members || []);
+      }
     } catch (err) {
-      console.error('Failed to persist team:', err);
+      console.error('Failed to fetch project members:', err);
     }
-  };
+  }, [id]);
 
   const handleMemberClick = (member) => {
     setSelectedMember(member);
-    setEditFormData({ ...member });
     setIsEditing(false);
     setShowMemberModal(true);
   };
 
-  const handleStartEdit = () => { setEditFormData({ ...selectedMember }); setIsEditing(true); };
-  const handleCancelEdit = () => { setEditFormData({ ...selectedMember }); setIsEditing(false); };
-  const hasCaptain = () => teamMembers.some(m => m.role === 'captain');
-  const getCurrentCaptain = () => teamMembers.find(m => m.role === 'captain');
+  const handleStartEdit = () => {
+    if (selectedMember) {
+      setEditFormData({
+        name: selectedMember.name || '',
+        role: selectedMember.role || '',
+        className: selectedMember.className || '',
+        studentId: selectedMember.studentId || '',
+        email: selectedMember.email || '',
+        phone: selectedMember.phone || '',
+        lab: selectedMember.lab || ''
+      });
+      setIsEditing(true);
+    }
+  };
 
-  const handleRoleChange = (newRole) => {
-    if (newRole === 'captain') {
-      const cap = getCurrentCaptain();
-      if (cap && cap.id !== editFormData.id) { showToast('warning', `团队只能有一个队长！当前队长是 ${cap.name}`); return; }
-    } else if (newRole === 'member' && editFormData.role === 'captain') {
-      const others = teamMembers.filter(m => m.role === 'captain' && m.id !== editFormData.id);
-      if (others.length === 0) {
-        const otherMembers = teamMembers.filter(m => m.id !== editFormData.id);
-        if (otherMembers.length === 0) { showToast('warning', '团队中没有其他成员可以成为队长'); return; }
-        setPendingDemoteMember(editFormData);
-        setSelectedNewCaptain(null);
-        setShowSelectCaptainModal(true);
-        return;
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    // 暂不实现后端更新，直接关闭
+    setIsEditing(false);
+    showToast('info', '成员信息编辑功能开发中');
+  };
+
+  const handleRoleChange = (role) => {
+    setEditFormData({ ...editFormData, role });
+  };
+
+  const handleDeleteMember = async () => {
+    if (selectedMember.role === 'captain') { showToast('warning', '不能移除队长，请先转让队长身份'); return; }
+    if (window.confirm(`确定要移除成员 ${selectedMember.name} 吗？`)) {
+      try {
+        const res = await api.delete(`/projects/${id}/members/${selectedMember.id}`);
+        if (res.data.success) {
+          showToast('success', '成员已移除');
+          setShowMemberModal(false);
+          fetchProjectMembers();
+          fetchLogs();
+        }
+      } catch (err) {
+        showToast('error', err.response?.data?.message || '移除成员失败');
       }
     }
-    setEditFormData({ ...editFormData, role: newRole });
   };
 
-  const handleConfirmNewCaptain = () => {
-    if (!selectedNewCaptain) { showToast('warning', '请选择一位成员成为新队长'); return; }
-    const updated = teamMembers.map(m => {
-      if (m.id === pendingDemoteMember.id) return { ...m, role: 'member' };
-      if (m.id === selectedNewCaptain.id) return { ...m, role: 'captain' };
-      return m;
-    });
-    persistTeam(updated);
-    setEditFormData({ ...editFormData, role: 'member' });
-    setSelectedMember({ ...editFormData, role: 'member' });
-    setShowSelectCaptainModal(false);
-    setPendingDemoteMember(null);
-    setSelectedNewCaptain(null);
-    showToast('success', `${selectedNewCaptain.name} 已成为新队长`);
-  };
-
-  const handleSaveEdit = () => {
-    if (editFormData.role === 'captain') {
-      const cap = getCurrentCaptain();
-      if (cap && cap.id !== editFormData.id) { showToast('warning', `团队只能有一个队长！当前队长是 ${cap.name}`); return; }
+  const handleSearchUser = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
     }
-    const updated = teamMembers.map(m => m.id === editFormData.id ? editFormData : m);
-    persistTeam(updated);
-    setSelectedMember(editFormData);
-    setIsEditing(false);
-    showToast('success', '成员信息已更新');
+
+    try {
+      setIsSearching(true);
+      const res = await api.get(`/users/search?q=${encodeURIComponent(query)}`);
+      if (res.data.success) {
+        setSearchResults(res.data.data);
+        setShowDropdown(true);
+      }
+    } catch (err) {
+      console.error('Search user error:', err);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
-  const handleDeleteMember = () => {
-    if (selectedMember.role === 'captain') { showToast('warning', '队长不能被删除'); return; }
-    if (window.confirm(`确定要删除成员 ${selectedMember.name} 吗？`)) {
-      persistTeam(teamMembers.filter(m => m.id !== selectedMember.id));
-      setShowMemberModal(false);
-      showToast('success', '成员已删除');
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    setSelectedUser(null);
+    setNewMemberId('');
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      handleSearchUser(value);
+    }, 300);
+  };
+
+  const handleSelectUser = (user) => {
+    setSelectedUser(user);
+    setSearchQuery(`${user.name} (${user.student_id})`);
+    setNewMemberId(user.id.toString());
+    setShowDropdown(false);
   };
 
   const handleOpenAddModal = () => {
-    setNewMemberData({ name: '', role: 'member', className: '', studentId: '', email: '', phone: '', lab: '' });
+    setNewMemberId('');
+    setNewMemberRole('member');
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedUser(null);
+    setShowDropdown(false);
     setShowAddModal(true);
   };
 
-  const handleNewMemberRoleChange = (newRole) => {
-    if (newRole === 'captain' && hasCaptain()) {
-      const cap = getCurrentCaptain();
-      showToast('warning', `团队只能有一个队长！当前队长是 ${cap.name}`);
-      return;
+  const handleAddMember = async () => {
+    if (!newMemberId) { showToast('warning', '请先搜索并选择一个真实用户'); return; }
+    
+    try {
+      const res = await api.post(`/projects/${id}/members`, { 
+        userId: parseInt(newMemberId), 
+        role: newMemberRole 
+      });
+      if (res.data.success) {
+        showToast('success', '成员添加成功');
+        setShowAddModal(false);
+        fetchProjectMembers();
+        fetchLogs();
+      }
+    } catch (err) {
+      showToast('error', err.response?.data?.message || '添加成员失败');
     }
-    setNewMemberData({ ...newMemberData, role: newRole });
-  };
-
-  const handleAddMember = () => {
-    if (!newMemberData.name.trim()) { showToast('warning', '请输入成员姓名'); return; }
-    if (newMemberData.role === 'captain' && hasCaptain()) {
-      const cap = getCurrentCaptain();
-      showToast('warning', `团队只能有一个队长！当前队长是 ${cap.name}`);
-      return;
-    }
-    const updated = [...teamMembers, { ...newMemberData, id: Date.now() }];
-    persistTeam(updated);
-    setShowAddModal(false);
-    showToast('success', '成员添加成功');
   };
 
   const budgetBalance = budgetTotal - budgetSpent;
@@ -901,10 +948,12 @@ const ProjectDashboard = () => {
                 <h5 style={{ fontSize: '18px', fontWeight: '600', color: '#333', margin: 0 }}>
                   <FaUsers style={{ marginRight: '10px', color: '#722ed1' }} />团队成员
                 </h5>
-                <CommonButton variant="outline-primary" onClick={handleOpenAddModal}
-                  style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '16px' }}>
-                  <FaPlus style={{ marginRight: '4px' }} />添加
-                </CommonButton>
+                {project.currentUserRole === 'captain' && (
+                  <CommonButton variant="outline-primary" onClick={handleOpenAddModal}
+                    style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '16px' }}>
+                    <FaPlus style={{ marginRight: '4px' }} />添加
+                  </CommonButton>
+                )}
               </div>
 
               {teamMembers.length === 0 ? (
@@ -1058,8 +1107,12 @@ const ProjectDashboard = () => {
         <Modal.Footer style={{ border: 'none', justifyContent: 'space-between' }}>
           {isEditing ? (
             <>
-              <CommonButton variant="outline-danger" onClick={handleDeleteMember}>删除成员</CommonButton>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              {project.currentUserRole === 'captain' ? (
+                <CommonButton variant="outline-danger" onClick={handleDeleteMember}>删除成员</CommonButton>
+              ) : (
+                <div />
+              )}
+              <div style={{ display: 'flex', gap: '8px', marginLeft: project.currentUserRole === 'captain' ? '0' : 'auto' }}>
                 <CommonButton variant="secondary" onClick={handleCancelEdit}>取消</CommonButton>
                 <CommonButton variant="primary" onClick={handleSaveEdit}>保存</CommonButton>
               </div>
@@ -1080,58 +1133,84 @@ const ProjectDashboard = () => {
           <div onClick={() => setShowAddModal(false)} style={{ cursor: 'pointer', marginLeft: 'auto' }}><FaTimes size={18} color="#8c8c8c" /></div>
         </Modal.Header>
         <Modal.Body style={{ padding: '24px' }}>
-          <FormField icon={FaUserCircle} iconColor="#1890ff" label="姓名 *" value={newMemberData.name}
-            onChange={(e) => setNewMemberData({ ...newMemberData, name: e.target.value })} placeholder="请输入姓名" />
+          
+          <div style={{ position: 'relative', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+              <FaIdCard style={{ color: '#1890ff', marginRight: '12px', fontSize: '18px', marginTop: '4px' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '4px' }}>搜索用户 (学号/姓名) *</div>
+                <Form.Control 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={handleSearchChange} 
+                  onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+                  placeholder="请输入学号或姓名搜索" 
+                  style={{ fontSize: '14px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #d9d9d9' }} 
+                />
+                
+                {isSearching && (
+                  <div style={{ position: 'absolute', right: '12px', top: '32px' }}>
+                    <Spinner animation="border" size="sm" style={{ color: '#1890ff' }} />
+                  </div>
+                )}
+                
+                {showDropdown && searchResults.length > 0 && (
+                  <div style={{ 
+                    position: 'absolute', top: '100%', left: '30px', right: 0, zIndex: 1000,
+                    marginTop: '4px', backgroundColor: '#fff', borderRadius: '8px', 
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid #f0f0f0',
+                    maxHeight: '200px', overflowY: 'auto'
+                  }}>
+                    {searchResults.map(user => (
+                      <div 
+                        key={user.id}
+                        onClick={() => handleSelectUser(user)}
+                        style={{ 
+                          padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+                      >
+                        <span style={{ fontWeight: '500', color: '#333' }}>{user.name}</span>
+                        <span style={{ fontSize: '12px', color: '#8c8c8c' }}>学号: {user.student_id}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {showDropdown && searchResults.length === 0 && !isSearching && searchQuery.trim() && (
+                  <div style={{ 
+                    position: 'absolute', top: '100%', left: '30px', right: 0, zIndex: 1000,
+                    marginTop: '4px', backgroundColor: '#fff', borderRadius: '8px', 
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid #f0f0f0',
+                    padding: '12px', textAlign: 'center', color: '#8c8c8c', fontSize: '13px'
+                  }}>
+                    未找到匹配的用户
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div style={{ marginBottom: '16px', paddingLeft: '30px' }}>
             <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '6px' }}>角色</div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              {['captain', 'member', 'advisor'].map(r => (
-                <span key={r} onClick={() => handleNewMemberRoleChange(r)}
-                  style={{ padding: '6px 16px', borderRadius: '16px', fontSize: '13px', cursor: 'pointer', backgroundColor: newMemberData.role === r ? '#1890ff' : '#f0f0f0', color: newMemberData.role === r ? '#fff' : '#666' }}>
-                  {r === 'captain' ? '队长' : r === 'advisor' ? '指导老师' : '成员'}
+              {['member', 'advisor'].map(r => (
+                <span key={r} onClick={() => setNewMemberRole(r)}
+                  style={{ padding: '6px 16px', borderRadius: '16px', fontSize: '13px', cursor: 'pointer', backgroundColor: newMemberRole === r ? '#1890ff' : '#f0f0f0', color: newMemberRole === r ? '#fff' : '#666' }}>
+                  {r === 'advisor' ? '指导老师' : '成员'}
                 </span>
               ))}
             </div>
+            <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '12px' }}>
+              注：添加成员现在会直接关联系统中的真实用户账号。添加后，该成员登录系统即可在“我的项目”中看到此项目。
+            </div>
           </div>
-          <FormField icon={FaGraduationCap} iconColor="#722ed1" label="班级" value={newMemberData.className}
-            onChange={(e) => setNewMemberData({ ...newMemberData, className: e.target.value })} placeholder="班级（可选）" />
-          <FormField icon={FaIdCard} iconColor="#13c2c2" label="学号" value={newMemberData.studentId}
-            onChange={(e) => setNewMemberData({ ...newMemberData, studentId: e.target.value })} placeholder="学号（可选）" />
-          <FormField icon={FaEnvelope} iconColor="#eb2f96" label="邮箱" value={newMemberData.email}
-            onChange={(e) => setNewMemberData({ ...newMemberData, email: e.target.value })} placeholder="邮箱（可选）" />
-          <FormField icon={FaPhone} iconColor="#52c41a" label="电话" value={newMemberData.phone}
-            onChange={(e) => setNewMemberData({ ...newMemberData, phone: e.target.value })} placeholder="电话（可选）" />
-          <FormField icon={FaBuilding} iconColor="#faad14" label="实验室" value={newMemberData.lab}
-            onChange={(e) => setNewMemberData({ ...newMemberData, lab: e.target.value })} placeholder="实验室（可选）" />
         </Modal.Body>
         <Modal.Footer style={{ border: 'none' }}>
           <CommonButton variant="secondary" onClick={() => setShowAddModal(false)}>取消</CommonButton>
-          <CommonButton variant="primary" onClick={handleAddMember} disabled={!newMemberData.name.trim()}>添加</CommonButton>
-        </Modal.Footer>
-      </Modal>
-
-      {/* ─── Select New Captain Modal ─── */}
-      <Modal show={showSelectCaptainModal} onHide={() => setShowSelectCaptainModal(false)} centered size="sm">
-        <Modal.Header style={{ border: 'none' }}>
-          <Modal.Title style={{ fontSize: '16px', fontWeight: '600' }}>选择新队长</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>请选择一位成员成为新队长：</p>
-          {teamMembers.filter(m => pendingDemoteMember && m.id !== pendingDemoteMember.id).map(m => (
-            <div key={m.id} onClick={() => setSelectedNewCaptain(m)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', marginBottom: '6px',
-                backgroundColor: selectedNewCaptain?.id === m.id ? '#e6f7ff' : '#fafafa',
-                border: selectedNewCaptain?.id === m.id ? '1px solid #1890ff' : '1px solid #f0f0f0'
-              }}>
-              <FaUserCircle size={24} style={{ color: '#bfbfbf' }} />
-              <span style={{ fontSize: '14px', color: '#333' }}>{m.name}</span>
-            </div>
-          ))}
-        </Modal.Body>
-        <Modal.Footer style={{ border: 'none' }}>
-          <CommonButton variant="secondary" onClick={() => setShowSelectCaptainModal(false)}>取消</CommonButton>
-          <CommonButton variant="primary" onClick={handleConfirmNewCaptain} disabled={!selectedNewCaptain}>确认</CommonButton>
+          <CommonButton variant="primary" onClick={handleAddMember} disabled={!newMemberId}>添加绑定</CommonButton>
         </Modal.Footer>
       </Modal>
 

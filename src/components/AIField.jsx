@@ -36,8 +36,9 @@ const AIField = ({
 
   // 处理 AI 润色 - 带完整错误处理
   const handleAIPolish = async () => {
-    // 输入验证
-    if (!value || value.trim().length === 0) {
+    // 输入验证 - 实施防御性编程修复
+    const safeValue = typeof value === 'string' ? value : String(value || '');
+    if (!safeValue || safeValue.trim().length === 0) {
       showToast('warning', '请先输入内容');
       return;
     }
@@ -123,7 +124,7 @@ const AIField = ({
         <CommonButton
           variant="primary"
           onClick={handleAIPolish}
-          disabled={isPolishing || !value?.trim()}
+          disabled={isPolishing || !(typeof value === 'string' ? value : String(value || '')).trim()}
           style={{
             background: isPolishing
               ? '#a0a0a0'
@@ -136,7 +137,7 @@ const AIField = ({
             alignItems: 'center',
             gap: '6px',
             cursor: isPolishing ? 'not-allowed' : 'pointer',
-            opacity: (!value?.trim() && !isPolishing) ? 0.5 : 1
+            opacity: (!(typeof value === 'string' ? value : String(value || '')).trim() && !isPolishing) ? 0.5 : 1
           }}
         >
           {isPolishing ? (

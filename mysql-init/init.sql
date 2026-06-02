@@ -1,70 +1,252 @@
--- phpMyAdmin SQL Dump
--- version 5.2.3
--- https://www.phpmyadmin.net/
---
--- 主机： mysql:3306
--- 生成日期： 2026-02-13 12:06:26
--- 服务器版本： 8.0.45
--- PHP 版本： 8.3.26
+-- =====================================================
+-- GDUT 大创平台数据库模式
+-- Database Schema for GDUT Innovation Platform
+-- =====================================================
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
+-- 创建数据库（如果不存在）
+CREATE DATABASE IF NOT EXISTS gdut_dachuang
+  DEFAULT CHARACTER SET utf8mb4
+  DEFAULT COLLATE utf8mb4_unicode_ci;
 
+USE gdut_dachuang;
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
+-- =====================================================
+-- 表 1: users (用户表 - 认证与权限)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS users (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  student_id VARCHAR(20) UNIQUE DEFAULT NULL COMMENT '学号/工号 - 用于校园系统集成',
+  username VARCHAR(50) UNIQUE DEFAULT NULL COMMENT '自定义用户名 - 用于非学号登录',
+  password VARCHAR(255) NOT NULL COMMENT '加密后的密码',
+  name VARCHAR(50) NOT NULL COMMENT '真实姓名',
+  email VARCHAR(100) DEFAULT NULL COMMENT '邮箱地址',
+  phone VARCHAR(20) DEFAULT NULL COMMENT '联系电话',
+  role ENUM('student', 'teacher', 'admin') DEFAULT 'student' COMMENT '用户角色',
+  avatar VARCHAR(255) DEFAULT NULL COMMENT '头像路径',
+  department VARCHAR(100) DEFAULT NULL COMMENT '学院/部门',
+  major VARCHAR(100) DEFAULT NULL COMMENT '专业',
+  grade VARCHAR(20) DEFAULT NULL COMMENT '年级',
+  is_active TINYINT(1) DEFAULT 1 COMMENT '账户是否激活',
+  last_login TIMESTAMP NULL COMMENT '最后登录时间',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  
+  INDEX idx_student_id (student_id),
+  INDEX idx_username (username),
+  INDEX idx_role (role),
+  INDEX idx_department (department)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
---
--- 数据库： `gdut_dachuang`
---
+-- =====================================================
+-- 表 2: projects (项目表 - 项目管理)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS projects (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT NOT NULL COMMENT '项目负责人ID',
+  title VARCHAR(200) NOT NULL COMMENT '项目名称',
+  project_type ENUM('national', 'provincial', 'school') DEFAULT 'school' COMMENT '项目级别',
+  status ENUM('draft', 'pending', 'approved', 'in_progress', 'midterm', 'concluded', 'rejected') DEFAULT 'draft' COMMENT '项目状态',
+  progress INT DEFAULT 0 COMMENT '项目进度百分比 (0-100)',
+  description TEXT COMMENT '项目简介',
+  research_field VARCHAR(100) DEFAULT NULL COMMENT '研究领域',
+  keywords VARCHAR(255) DEFAULT NULL COMMENT '关键词',
+  start_date DATE DEFAULT NULL COMMENT '项目开始日期',
+  end_date DATE DEFAULT NULL COMMENT '项目结束日期',
+  budget DECIMAL(10, 2) DEFAULT 0.00 COMMENT '项目预算',
+  spent_budget DECIMAL(10, 2) DEFAULT 0.00 COMMENT '已使用预算',
+  teacher_id INT DEFAULT NULL COMMENT '指导教师ID',
+  team_members TEXT COMMENT '废弃：团队成员JSON数组',
+  application_data JSON COMMENT '申请表数据',
+  midterm_data JSON COMMENT '中期报告数据',
+  conclusion_data JSON COMMENT '结题报告数据',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_user_id (user_id),
+  INDEX idx_status (status),
+  INDEX idx_project_type (project_type),
+  INDEX idx_teacher_id (teacher_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='项目表';
 
--- --------------------------------------------------------
+-- =====================================================
+-- 表 2.5: project_members (项目成员关联表)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS project_members (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  project_id INT NOT NULL COMMENT '项目ID',
+  user_id INT NOT NULL COMMENT '成员用户ID',
+  role ENUM('captain', 'member', 'advisor') DEFAULT 'member' COMMENT '项目角色',
+  joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
+  
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE KEY uk_project_user (project_id, user_id),
+  INDEX idx_project_id (project_id),
+  INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='项目成员关联表';
 
---
--- 表的结构 `audit_logs`
---
+-- =====================================================
+-- 表 3: files (文件表 - 档案管理)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS files (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  project_id INT NOT NULL COMMENT '所属项目ID',
+  user_id INT NOT NULL COMMENT '上传者ID',
+  filename VARCHAR(255) NOT NULL COMMENT '原始文件名',
+  filepath VARCHAR(500) NOT NULL COMMENT '存储路径',
+  file_type ENUM('application', 'midterm', 'conclusion', 'reimbursement', 'attachment', 'other') DEFAULT 'other' COMMENT '文件类型',
+  file_size INT DEFAULT 0 COMMENT '文件大小(字节)',
+  mime_type VARCHAR(100) DEFAULT NULL COMMENT 'MIME类型',
+  description VARCHAR(255) DEFAULT NULL COMMENT '文件描述',
+  is_public TINYINT(1) DEFAULT 0 COMMENT '是否公开',
+  download_count INT DEFAULT 0 COMMENT '下载次数',
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+  
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_project_id (project_id),
+  INDEX idx_user_id (user_id),
+  INDEX idx_file_type (file_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件表';
 
-CREATE TABLE `audit_logs` (
-  `id` int NOT NULL,
-  `user_id` int DEFAULT NULL COMMENT 'æ“ä½œç”¨æˆ·ID',
-  `action` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'æ“ä½œç±»åž‹',
-  `entity_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'å®žä½“ç±»åž‹ (user, project, fileç­‰)',
-  `entity_id` int DEFAULT NULL COMMENT 'å®žä½“ID',
-  `details` text COLLATE utf8mb4_unicode_ci COMMENT 'æ“ä½œè¯¦æƒ…',
-  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'IPåœ°å€',
-  `user_agent` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ç”¨æˆ·ä»£ç†',
-  `timestamp` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'æ“ä½œæ—¶é—´'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='å®¡è®¡æ—¥å¿—è¡¨';
+-- =====================================================
+-- 表 4: audit_logs (审计日志表 - 系统历史)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT DEFAULT NULL COMMENT '操作用户ID',
+  user_name VARCHAR(50) DEFAULT NULL COMMENT '操作用户姓名(冗余存储)',
+  action VARCHAR(100) NOT NULL COMMENT '操作类型',
+  entity_type VARCHAR(50) DEFAULT NULL COMMENT '实体类型 (user, project, file等)',
+  entity_id INT DEFAULT NULL COMMENT '实体ID',
+  details TEXT COMMENT '操作详情',
+  ip_address VARCHAR(45) DEFAULT NULL COMMENT 'IP地址',
+  user_agent VARCHAR(255) DEFAULT NULL COMMENT '用户代理',
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+  
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_user_id (user_id),
+  INDEX idx_action (action),
+  INDEX idx_entity (entity_type, entity_id),
+  INDEX idx_timestamp (timestamp)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='审计日志表';
 
--- --------------------------------------------------------
+-- =====================================================
+-- 表 5: reimbursements (报销记录表)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS reimbursements (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  project_id INT NOT NULL COMMENT '所属项目ID',
+  user_id INT NOT NULL COMMENT '申请人ID',
+  amount DECIMAL(10, 2) NOT NULL COMMENT '报销金额',
+  category ENUM('material', 'travel', 'service', 'equipment', 'other') DEFAULT 'other' COMMENT '报销类别',
+  description TEXT COMMENT '报销说明',
+  status ENUM('pending', 'approved', 'rejected', 'paid') DEFAULT 'pending' COMMENT '报销状态',
+  receipt_files JSON COMMENT '票据文件路径数组',
+  reviewer_id INT DEFAULT NULL COMMENT '审核人ID',
+  review_comment TEXT COMMENT '审核意见',
+  reviewed_at TIMESTAMP NULL COMMENT '审核时间',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_project_id (project_id),
+  INDEX idx_user_id (user_id),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='报销记录表';
 
---
--- 表的结构 `competitions`
---
+-- =====================================================
+-- 表 6: expenses (支出记录表 - 经费管理)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS expenses (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  project_id INT NOT NULL COMMENT '所属项目ID',
+  item_name VARCHAR(200) NOT NULL COMMENT '支出项目名称',
+  amount DECIMAL(10, 2) NOT NULL COMMENT '支出金额',
+  expense_date DATE NOT NULL COMMENT '支出日期',
+  location VARCHAR(200) DEFAULT NULL COMMENT '支出地点',
+  invoice_path VARCHAR(500) DEFAULT NULL COMMENT '发票文件路径',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
 
-CREATE TABLE `competitions` (
-  `id` int NOT NULL,
-  `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '竞赛名称',
-  `category` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '竞赛分类 (创新创业类/体育类/人文艺术类)',
-  `level` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '竞赛等级 (特级/一级/二级/三A级/三B级/三级)',
-  `status` enum('upcoming','ongoing','ended') COLLATE utf8mb4_unicode_ci DEFAULT 'upcoming' COMMENT '竞赛状态',
-  `organizer` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '主办单位',
-  `description` text COLLATE utf8mb4_unicode_ci COMMENT '竞赛详细描述 (Markdown)',
-  `timeline` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '竞赛时间安排',
-  `deadline` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '报名截止日期',
-  `entry_method` text COLLATE utf8mb4_unicode_ci COMMENT '参赛方式详细说明 (Markdown)',
-  `official_website` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '官方网站',
-  `participants` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '参赛对象',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  INDEX idx_project_id (project_id),
+  INDEX idx_expense_date (expense_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='支出记录表';
+
+-- =====================================================
+-- 插入默认管理员账户 (密码: admin123, 需要在应用中使用bcrypt加密)
+-- =====================================================
+INSERT INTO users (student_id, username, password, name, role) 
+VALUES ('000000', 'test123', '$2b$10$.SoPwAhK2r2yoFKsJffsFuvwmedIfPw87V.mmTtLb9FXhJuGF14xK', '超级管理员', 'admin')
+ON DUPLICATE KEY UPDATE role = 'admin', name = '超级管理员';
+
+-- =====================================================
+-- 视图: 项目概览视图
+-- =====================================================
+CREATE OR REPLACE VIEW v_project_overview AS
+SELECT 
+  p.id,
+  p.title,
+  p.status,
+  p.progress,
+  p.project_type,
+  p.created_at,
+  u.name AS owner_name,
+  u.student_id AS owner_student_id,
+  t.name AS teacher_name,
+  (SELECT COUNT(*) FROM files f WHERE f.project_id = p.id) AS file_count,
+  (SELECT COALESCE(SUM(r.amount), 0) FROM reimbursements r WHERE r.project_id = p.id AND r.status = 'paid') AS total_reimbursed
+FROM projects p
+LEFT JOIN users u ON p.user_id = u.id
+LEFT JOIN users t ON p.teacher_id = t.id;
+
+-- =====================================================
+
+-- =====================================================
+-- 表: competitions (竞赛表)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS competitions (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(200) NOT NULL COMMENT '竞赛名称',
+  category VARCHAR(50) NOT NULL COMMENT '竞赛分类',
+  level VARCHAR(20) NOT NULL COMMENT '竞赛等级',
+  status ENUM('upcoming','ongoing','ended') DEFAULT 'upcoming' COMMENT '竞赛状态',
+  organizer VARCHAR(200) DEFAULT NULL COMMENT '主办单位',
+  description TEXT COMMENT '竞赛详细描述',
+  timeline VARCHAR(200) DEFAULT NULL COMMENT '竞赛时间安排',
+  deadline VARCHAR(100) DEFAULT NULL COMMENT '报名截止日期',
+  start_time DATE DEFAULT NULL COMMENT '竞赛开始时间',
+  end_time DATE DEFAULT NULL COMMENT '竞赛结束时间',
+  needs_review TINYINT(1) DEFAULT 0 COMMENT '是否需要审核',
+  entry_method TEXT COMMENT '参赛方式详细说明',
+  official_website VARCHAR(500) DEFAULT NULL COMMENT '官方网站',
+  participants VARCHAR(100) DEFAULT NULL COMMENT '参赛对象',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='竞赛信息表';
 
---
--- 转存表中的数据 `competitions`
---
+
+-- =====================================================
+-- 表: dachuang_guide_competitions
+-- =====================================================
+CREATE TABLE IF NOT EXISTS dachuang_guide_competitions (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL COMMENT '竞赛名称',
+  level VARCHAR(50) NOT NULL COMMENT '竞赛等级',
+  summary_time VARCHAR(100) DEFAULT NULL COMMENT '时间概览',
+  description TEXT COMMENT '竞赛详细介绍',
+  registration_process TEXT COMMENT '报名流程',
+  dachuang_relevance TEXT COMMENT '大创关联性/推荐理由',
+  official_link VARCHAR(255) DEFAULT NULL COMMENT '官网链接',
+  timeline_details JSON DEFAULT NULL COMMENT '时间轴节点',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='大创指南相关竞赛精选表';
+
 
 INSERT INTO `competitions` (`id`, `name`, `category`, `level`, `status`, `organizer`, `description`, `timeline`, `deadline`, `entry_method`, `official_website`, `participants`, `created_at`, `updated_at`) VALUES
 (21, '中国国际大学生创新大赛 (China International College Students\' Innovation Competition)', 'Innovation/Entrepreneurship', 'National', 'ongoing', '教育部、中央统战部、中央网信办、国家发改委等', '## 赛事简介\n原\"互联网+\"大学生创新创业大赛，是中国覆盖面最大、影响最广的大学生创新创业盛会。大赛旨在深化高等教育综合改革，激发大学生的创造力，培养造就\"大众创业、万众创新\"的生力军。\n\n## 赛道设置\n大赛主体包括高教主赛道、\"青年红色筑梦之旅\"赛道、职教赛道、产业命题赛道和萌芽赛道。', '每年6-10月', '2026-07-15', '1. 登录\"全国大学生创业服务网\" (cy.ncss.cn) 进行注册。\n2. 创建团队并填写项目申报书。\n3. 上传商业计划书及相关佐证材料。\n4. 学校审核后进入校级初赛，优秀项目推荐至省赛。', 'https://cy.ncss.cn/', '420万+ 项目', '2026-02-12 17:09:37', '2026-02-12 17:09:37'),
@@ -154,6 +336,7 @@ INSERT INTO `competitions` (`id`, `name`, `category`, `level`, `status`, `organi
 (106, '鲲鹏应用创新大赛', '二级竞赛', 'National', 'ended', '华为技术有限公司', '**Kunpeng Application Innovation Contest**\n\nThe Kunpeng Application Innovation Contest is an annual event organized by Huawei to encourage developers to create innovative applications based on the Kunpeng computing platform.\nThe contest aims to foster innovation in computing, promote the adoption of Kunpeng processors, and build a robust ecosystem around Huawei\'s arm-based architecture.\nParticipants are challenged to develop applications that leverage Kunpeng\'s high performance, energy efficiency, and scalability for various industries such as finance, government, and telecommunications.\nThe contest typically includes several stages: preliminary, regional finals, and national finals.\nWinners receive cash prizes, technical support, and opportunities for commercial deployment.\nIn the 2025 edition, the contest focused on AI integration with Kunpeng, attracting thousands of teams.\nThe event not only showcases technical prowess but also facilitates knowledge exchange among developers, experts, and industry leaders.\nHuawei provides resources like development kits and training to help participants succeed.\nThis contest plays a crucial role in advancing China\'s indigenous computing technology and reducing dependence on foreign processors.\nIt encourages collaboration between academia and industry, driving forward the digital transformation agenda.', NULL, '2025-12-24', '1. Visit the official website.\n2. Create an account on Huawei Developer portal.\n3. Fill in the registration form with team details.\n4. Submit application proposal.\n5. Await confirmation.', 'https://e.huawei.com/en/talent/#/ict-academy/ict-competition', '2000+ teams', '2026-02-12 17:24:40', '2026-02-12 17:24:40'),
 (107, '华为开发者大赛', '二级竞赛', 'National', 'ended', '华为技术有限公司', '**Huawei Developer Competition**\n\nThe Huawei Developer Competition is a global platform for developers to showcase their innovative solutions using Huawei\'s technologies.\nIt encourages participation from individuals, teams, and companies to solve real-world problems using cloud, AI, and IoT.\nThe 2025 edition, themed \'Spark Infinity\', focused on Northern Africa and APAC regions, with prizes up to $5,000.\nThe competition includes sign-up, team formation, submission, and judging.\nIt aims to foster innovation, provide networking opportunities, and integrate developers into Huawei\'s ecosystem.\nParticipants can access Huawei Cloud resources for development.\nThe event has regional variations with different deadlines and rewards.\nIn 2025, it attracted thousands of participants from enterprises, startups, and students.\nWinners get cash prizes, mentorship, and potential investment.\nThe competition highlights Huawei\'s commitment to building a vibrant developer community and advancing technological frontiers across various sectors.', NULL, '2026-01-31', '1. Visit competition.intl.huaweicloud.com.\n2. Sign up and form team.\n3. Submit application.\n4. Develop and submit work.', 'https://competition.intl.huaweicloud.com/intl/en-us/information/1201724798/introduction', '2000+ participants', '2026-02-12 17:24:40', '2026-02-12 17:24:40'),
 (108, '华为软件精英挑战赛', '二级竞赛', 'National', 'ongoing', '华为技术有限公司', '**Huawei Software Elite Challenge**\n\n华为算法挑战赛由华为公司持续赞助，旨在开放工业界前沿研究课题，促进科技人才培养，推动科技进步和产业发展。\n该赛事采用经典黑客松打榜赛制，每月上线不同赛题，长期开放华为相关产业赛题，欢迎专家学者、企业员工、高校师生共同参与，激发交流碰撞，发现最优解。\n赛事提供丰厚奖项奖金激励，鼓励开发者挑战自我，并在竞赛技术圈结交志同道合的朋友。\n赛题涵盖AI智算集群通信多平面编排难题、昇腾AI算法挑战赛、求图的循环基的算法、Accuracy-Preserving Summation Algorithm、异步HAC并行加密与合并系统设计、多参数无线网络、服务器集群队列管理及利润和价格最优解问题、服务器队列管理、个体头部传递函数设计、Advanced Computation Architecture、Time Series Algorithm、神经网络中的相依算子优化、自适应安全引擎排程问题、Container Service Preheating、软切片调度时延隔离、高性能动态内存管理算法、AI集群数据传输路由规划、Beautiful Partitioning Challenge、Minimum Cost Trees、高精度低时延向量检索算法、共享风险链接组（SRLG）、异构集群上的大型语言模型推理、Rerouting in an optical network、亲和任务调度系统、多核信息处理系统、子图召回问题、磁带同步问题、用户位置与站址同步估计问题、基于单视卫图的建筑物轮廓检测及高度预测、JSP调度和内存背包问题、基于昇腾云服务的算子开发、拓扑感知的虚拟机放置问题、高维向量数据的近似检索、云集群成本优化等多个领域，聚焦于算法优化、AI计算、云计算、网络调度、数据处理等前沿技术。\n赛事强调通过算法创新解决实际产业问题，提升计算效率、降低时延、优化资源分配，并为开发者提供昇腾AI计算平台的全栈能力和API资源支持，助力构建高效AI模型。', NULL, '2026-03-15', '1. 登录大赛官网。\n2. 点击页面上方“立即报名”按钮进行报名。\n3. 大赛以单人形式参赛，不需多人组队。\n4. 提交作品在指定时间内。', 'https://developer.huaweicloud.com/hackathon', '4200+ teams', '2026-02-12 17:24:40', '2026-02-12 17:24:40');
+
 INSERT INTO `competitions` (`id`, `name`, `category`, `level`, `status`, `organizer`, `description`, `timeline`, `deadline`, `entry_method`, `official_website`, `participants`, `created_at`, `updated_at`) VALUES
 (109, 'HarmonyOS创新赛', '二级竞赛', 'National', 'ended', '华为技术有限公司', '**HarmonyOS Innovation Competition**\n\nThe HarmonyOS Innovation Competition is organized by Huawei to promote development on the HarmonyOS platform.\nIt invites developers to create innovative applications for smart devices, IoT, and mobile.\nThe 2025 edition encouraged creativity in app design, user experience, and integration with Huawei ecosystem.\nParticipants submit apps or solutions that solve everyday problems or enhance productivity.\nThe contest includes submission, review, and awards.\nWinners get prizes, promotion, and support for market launch.\nThe event helps build the HarmonyOS ecosystem, attracting developers to contribute to Huawei\'s OS.\nIn 2025, it saw participation from thousands of developers globally.\nThe competition highlights HarmonyOS\'s capabilities in distributed computing and multi-device collaboration.\nIt provides resources like SDKs and forums for developers to innovate and collaborate, driving the adoption of HarmonyOS in the global market.\n2025 HarmonyOS 创新赛是由华为主办的线上赛事，旨在推动HarmonyOS生态的创新与发展。\n赛事提供总奖金¥4500000，鼓励开发者基于HarmonyOS平台创作优秀的应用与解决方案。\n参赛者可通过官方渠道提交作品，参与全球范围内的技术竞技。\n赛事延续了往届的成功经验，聚焦HarmonyOS 6等最新技术能力，如animation、module.json5、layoutWeight等，助力开发者提升技能并实现商业化落地。', NULL, '2025-11-10', '1. 通过华为开发者联盟官网注册并提交作品。\n2. Register.\n3. Submit innovation proposal.\n4. Develop and upload app.', 'https://developer.huawei.com/consumer/cn/activity/digixActivity/digixHome', '2000+ participants', '2026-02-12 17:24:40', '2026-02-12 17:24:40'),
 (110, '国际基因工程机器竞赛 (iGEM)', 'Biology/Engineering', 'National', 'ongoing', 'iGEM Foundation', '## 赛事简介\n合成生物学领域的顶级国际赛事。比赛要求学生自主选题，利用标准生物模块（BioBricks）来构建基因回路，建立数学模型，并进行社会调研（Human Practices）。\n\n## 赛制\n分为常规赛（Regular）和总决赛（Grand Jamboree）。所有队伍需在赛季末赴巴黎（或线上）参加大露营进行答辩。\n\n## 2026赛季\n报名工作通常于2月启动，4月2日为早期报名截止，6月为常规报名截止。', NULL, '2026-06-04', '1. [...](asc_slot://start-slot-2)组建团队（PI+学生），在官网 (igem.org) 创建队伍。\n2. [...](asc_slot://start-slot-4)缴纳报名费（早期报名有优惠）。\n3. [...](asc_slot://start-slot-6)完成Team Roster（队员名单）录入。\n4. [...](asc_slot://start-slot-8)夏季进行实验与项目开发，10-11月参加Jamboree。', 'https://competition.igem.org/', '400+ 国际团队', '2026-02-12 17:24:40', '2026-02-12 17:24:40'),
@@ -257,6 +440,7 @@ INSERT INTO `competitions` (`id`, `name`, `category`, `level`, `status`, `organi
 (208, '广东省“燕兴杯”大学英语应用能力竞赛', 'English', 'Provincial', 'ended', '广东省高等教育学会', '## 赛事简介\n针对广东省应用型本科高校的英语赛事。旨在提升学生的实际应用与职场英语能力。\n\n## 形式\n*   **初赛**：线上词汇与阅读理解。\n*   **决赛**：职场英语口语（如模拟面试、产品介绍）。\n\n## 状态\n2025年决赛已于11月举行。', NULL, '2025-10-25', '1. 登录“燕兴杯”官网或学校教务系统报名。\n2. 参加校内初赛。\n3. 晋级省赛选手需准备决赛口语话题。\n4. 现场口语展示。', 'http://www.gdhies.org.cn/', '5万+ 考生', '2026-02-12 17:24:40', '2026-02-12 17:24:40'),
 (209, '台达杯国际太阳能建筑设计竞赛', 'Architecture/Green Energy', 'National', 'ongoing', '国际太阳能学会 (ISES)', '## 赛事简介\n以“太阳能与建筑一体化”为核心的绿色建筑赛事。强调可再生能源的利用与建筑美学的融合。\n\n## 赛题\n2026年赛题预计将于3月发布，通常为真实的建设项目（如零碳社区、幼儿园等）。\n\n## 影响\n获奖方案常被用于实际建设，具有极高的落地价值。', NULL, '2026-06-15', '1. 登录官网 (isbd.org.cn) 注册团队。\n2. 下载赛题任务书及地形图。\n3. 进行性能模拟分析（光照、能耗）。\n4. 提交设计图纸及分析报告。', 'http://www.isbd.org.cn/', '1200+ 团队', '2026-02-12 17:24:40', '2026-02-12 17:24:40'),
 (210, '全国大学生生物医学工程创新设计竞赛', 'Biomedical Engineering', 'National', 'ongoing', '中国生物医学工程学会', '## 赛事简介\n生物医学工程（BME）领域的顶级赛事。简称“医工结合”大赛。\n\n## 赛道\n*   **自选项目**：生物医学传感、医学影像、康复辅助器具。\n*   **命题项目**：如“穿戴式健康监测设备”。\n\n## 2026届\n第11届赛事预计将于4月启动，7月决赛。', NULL, '2026-05-31', '1. 登录大赛官网 (bmedesign.cn) 报名。\n2. 组建团队（3人），可跨专业。\n3. 提交作品设计报告、技术文档及视频。\n4. 决赛需携带实物作品进行现场演示与答辩。', 'http://www.bmedesign.cn/', '4000+ 团队', '2026-02-12 17:24:40', '2026-02-12 17:24:40');
+
 INSERT INTO `competitions` (`id`, `name`, `category`, `level`, `status`, `organizer`, `description`, `timeline`, `deadline`, `entry_method`, `official_website`, `participants`, `created_at`, `updated_at`) VALUES
 (211, '“创青春”粤港澳大湾区青年创新创业大赛', 'Entrepreneurship', 'Provincial', 'ongoing', '共青团广东省委员会', '## 赛事简介\n立足大湾区，辐射全国。旨在搭建青年创新创业交流、合作与资源对接平台。\n\n## 赛制\n与全国“创青春”大赛衔接。分为商工组、农业农村组等。\n\n## 奖金\n一等奖奖金高达10万元，并提供办公场地免租、融资对接等“大礼包”。', NULL, '2026-06-20', '1. 登录“创青春”广东官网 (gd.cqc.12355.net)。\n2. 注册账号并填写项目资料。\n3. 提交BP及路演视频。\n4. 参加初赛、复赛（通常在广州或深圳举行）。', 'http://gd.cqc.12355.net/', '6000+ 项目', '2026-02-12 17:24:40', '2026-02-12 17:24:40'),
 (212, '广东省大学生力学竞赛', 'Mechanics', 'Provincial', 'ongoing', '广东省力学学会', '## 赛事简介\n广东省力学基础学科竞赛。主要面向土木、机械、水利等工科专业学生。\n\n## 形式\n**个人赛**（笔试）+ **团体赛**（趣味实验）。\n\n## 笔试内容\n理论力学、材料力学。试题灵活，强调力学建模能力。\n\n## 团体赛\n利用简单材料（如牙签、扑克牌）制作承重结构或动力装置。', NULL, '2026-04-10', '1. 各高校校内选拔（通常3月）。\n2. 学校统一报名。\n3. 参加笔试（通常在5月）。\n4. 笔试优胜学校组队参加团体赛决赛。', 'http://www.gdphys.org.cn/', '3000+ 选手', '2026-02-12 17:24:40', '2026-02-12 17:24:40'),
@@ -299,30 +483,6 @@ INSERT INTO `competitions` (`id`, `name`, `category`, `level`, `status`, `organi
 (1009, '第十九届中国艺术管理教育学会年会·[...](asc_slot://start-slot-50)全国大学生创意策划大赛', 'Art Management', 'National', 'ended', '中国艺术管理教育学会', '## 赛事简介\n艺术管理与文化产业管理专业的顶级学科竞赛。2024年主题为“创意无界，艺动未来”。\n\n## 赛道\n*   **科技创新与数字技术**：数字艺术、元宇宙。\n*   **艺术赋能乡村振兴**。\n*   **文化创意与城市发展**。\n*   **艺术美育新样態**。\n\n## 赛制\n校赛（9月截止） -> 复赛 -> 全国总决赛（通常11月）。', NULL, '2024-09-20', '1. 组建团队（3-5人）。\n2. [...](asc_slot://start-slot-52)撰写项目策划书（包括市场分析、运营模式、财务预算）。\n3. 参加校内选拔。\n4. [...](asc_slot://start-slot-54)晋级后提交PDF方案至组委会，决赛进行路演答辩。', 'http://www.caaaad.com/', '3000+ 团队', '2026-02-12 17:32:15', '2026-02-12 17:32:15'),
 (1010, '中国（广州）星海国际合唱锦标赛', 'Music/Chorus', 'National', 'ongoing', '广州市人民政府、国际文化交流基金会', '## 赛事简介\n以人民音乐家冼星海命名的国际合唱赛事。是世界合唱比赛在中国的落地项目之一。\n\n## 特点\n高规格、国际化。通常邀请国际顶尖合唱团来穗交流竞技。\n\n## 时间\n通常与广州艺术节或星海音乐周结合举办。', NULL, '2026-06-30', '1. 关注INTERKULTUR或广州大剧院通知。\n2. [...](asc_slot://start-slot-56)提交报名表及录音资料。\n3. 参赛曲目需包含一首中国作品（建议）。\n4. [...](asc_slot://start-slot-58)参加在星海音乐厅或广州大剧院的比赛。', 'https://www.interkultur.com/', '100+ 团队', '2026-02-12 17:32:15', '2026-02-12 17:32:15');
 
--- --------------------------------------------------------
-
---
--- 表的结构 `dachuang_guide_competitions`
---
-
-CREATE TABLE `dachuang_guide_competitions` (
-  `id` int NOT NULL,
-  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '竞赛名称',
-  `level` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '竞赛等级',
-  `summary_time` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '时间概览',
-  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '竞赛详细介绍(支持HTML)',
-  `registration_process` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '报名流程',
-  `dachuang_relevance` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '大创关联性/推荐理由',
-  `official_link` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '官网链接',
-  `timeline_details` json DEFAULT NULL COMMENT '时间轴节点(JSON格式)',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='大创指南相关竞赛精选表';
-
---
--- 转存表中的数据 `dachuang_guide_competitions`
---
-
 INSERT INTO `dachuang_guide_competitions` (`id`, `name`, `level`, `summary_time`, `description`, `registration_process`, `dachuang_relevance`, `official_link`, `timeline_details`, `created_at`, `updated_at`) VALUES
 (1, '中国国际大学生创新大赛（原“互联网+”）', '国家级/A类', '4月启动，10月国赛', '<p><strong>这是目前中国覆盖面最大、影响最广、含金量最高的大学生双创赛事。</strong>大赛旨在深化高等教育综合改革，激发大学生的创造力。比赛分为高教主赛道、“青年红色筑梦之旅”赛道、职教赛道等。对于本科生而言，主赛道和红旅赛道是核心战场。</p><p>获奖项目不仅有丰厚的奖金，在很多高校（包括广工）的金奖/银奖项目成员可直接获得<strong>保研资格</strong>或复试加分。</p>', '<h4>报名流程（全流程网上操作）：</h4><ol><li><strong>注册账号：</strong>访问<a href=\"https://cy.ncss.cn/\" target=\"_blank\">全国大学生创业服务网</a>，使用学信网账号登录。</li><li><strong>创建项目：</strong>点击“报名参赛”，填写项目名称、类别、简介，并上传商业计划书（BP）。</li><li><strong>组建团队：</strong>邀请队员（需有学信网账号）加入，确认指导老师。</li><li><strong>校赛选拔：</strong>提交后等待学校审核，关注学校教务处/团委通知参加校内路演。</li></ol>', '<p><strong>大创项目的终极出口。</strong>几乎所有优秀的国家级/省级大创项目最终都会转化为“互联网+”的参赛项目。建议在大创中期检查时（约5-6月）利用大创的研究成果完善商业计划书，直接无缝对接参赛。</p>', 'https://cy.ncss.cn/', '{\"4月\": \"官网报名启动\", \"9月\": \"国赛训练营\", \"10月\": \"全国总决赛\", \"5月-6月\": \"校级初赛/决赛\", \"7月-8月\": \"省级复赛/决赛\"}', '2026-02-13 06:48:08', '2026-02-13 06:48:08'),
 (2, '“挑战杯”全国大学生课外学术科技作品竞赛', '国家级/A类', '10月校赛，次年省赛', '<p>被誉为当代大学生科技创新的<strong>“奥林匹克”</strong>盛会。与“互联网+”不同，“大挑”更侧重于<strong>学术性、科技发明和实证调研</strong>。比赛作品分为三类：自然科学类学术论文、哲学社会科学类社会调查报告和学术论文、科技发明制作。</p><p>该赛事每两年举办一届（奇数年举办），是检验学生科研学术水平的最高舞台。</p>', '<h4>参赛流程：</h4><ol><li><strong>学院申报：</strong>通常在偶数年的10月左右，向所在学院团委提交《作品申报书》和论文/实物原型。</li><li><strong>校级复赛：</strong>学院推荐优秀作品参加学校评审（书面评审+秘密答辩）。</li><li><strong>省级决赛：</strong>次年3-5月代表学校参加省赛。</li><li><strong>国赛申报：</strong>省赛特等奖/一等奖推报国赛。</li></ol>', '<p><strong>科研类大创的首选。</strong>如果你的大创项目产出了高质量的论文、专利或具体的硬件发明，不要浪费，直接用来投“挑战杯”。特别是社科类大创，非常适合投“社会调查报告”赛道。</p>', 'http://www.tiaozhanbei.net/', '{\"10月\": \"学院初赛/校赛启动\", \"次年3月\": \"报送省赛\", \"次年5月\": \"省赛终审\", \"11月-12月\": \"校级复赛/决赛\", \"次年10月-11月\": \"全国终审决赛\"}', '2026-02-13 06:48:08', '2026-02-13 06:48:08'),
@@ -333,289 +493,11 @@ INSERT INTO `dachuang_guide_competitions` (`id`, `name`, `level`, `summary_time`
 (7, '大学城校际综合实验技能邀请赛', '校级/区域级', '3月底报名', '<p>这是广州大学城（HEMC）特有的校际赛事，由广工、中大、华工等高校联合举办。旨在培养学生的<strong>实验动手能力、安全规范意识和跨学科协作能力</strong>。比赛通常包含化学实验、物理实验、电子设计等多个科目。</p>', '<h4>如何参与：</h4><p>关注广工教务处或实验教学中心的通知。通常是以“个人+团队”的形式报名，先进行笔试筛选，再进入实验室进行实操考核。</p>', '<p><strong>大创技能的孵化器。</strong>特别是对于大一、大二学生，在还没完全展开大创科研之前，参加这个比赛能极大地规范你的实验操作习惯，为后续做大创实验打下坚实基础。</p>', 'https://jwc.gdut.edu.cn/', '{\"3月\": \"报名启动\", \"5月底\": \"颁奖\", \"4月中旬\": \"初赛（笔试）\", \"5月上旬\": \"决赛（实操）\"}', '2026-02-13 06:48:08', '2026-02-13 06:48:08'),
 (8, '英语世界杯翻译大赛', '国家级/行业级', '5月-6月报名', '<p>由权威翻译协会或教育机构主办的高水平语言赛事，涵盖英译汉、汉译英、口译等多个组别。旨在提升大学生的跨文化交际能力和专业翻译素养。</p>', '<h4>参赛流程：</h4><ol><li>官网报名并缴纳报名费（通常较低）。</li><li><strong>初赛：</strong>线上限时翻译或提交译文。</li><li><strong>决赛：</strong>现场笔译或口译竞技。</li></ol>', '<p><strong>文科大创的亮点。</strong>对于外语学院或人文社科类的大创团队（例如做文化出海、翻译研究、双语网站开发），获得此奖项能证明团队的专业语言能力，为项目书增色不少。</p>', 'http://www.saikr.com/', '{\"6月\": \"初赛\", \"7月\": \"公布初赛结果\", \"10月\": \"全国总决赛\", \"4月-5月\": \"报名阶段\"}', '2026-02-13 06:48:08', '2026-02-13 06:48:08');
 
--- --------------------------------------------------------
-
---
--- 表的结构 `files`
---
-
-CREATE TABLE `files` (
-  `id` int NOT NULL,
-  `project_id` int NOT NULL COMMENT 'æ‰€å±žé¡¹ç›®ID',
-  `user_id` int NOT NULL COMMENT 'ä¸Šä¼ è€…ID',
-  `filename` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'åŽŸå§‹æ–‡ä»¶å',
-  `filepath` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'å­˜å‚¨è·¯å¾„',
-  `file_type` enum('application','midterm','conclusion','reimbursement','attachment','other') COLLATE utf8mb4_unicode_ci DEFAULT 'other' COMMENT 'æ–‡ä»¶ç±»åž‹',
-  `file_size` int DEFAULT '0' COMMENT 'æ–‡ä»¶å¤§å°(å­—èŠ‚)',
-  `mime_type` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'MIMEç±»åž‹',
-  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'æ–‡ä»¶æè¿°',
-  `is_public` tinyint(1) DEFAULT '0' COMMENT 'æ˜¯å¦å…¬å¼€',
-  `download_count` int DEFAULT '0' COMMENT 'ä¸‹è½½æ¬¡æ•°',
-  `uploaded_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'ä¸Šä¼ æ—¶é—´'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='æ–‡ä»¶è¡¨';
-
--- --------------------------------------------------------
-
---
--- 表的结构 `projects`
---
-
-CREATE TABLE `projects` (
-  `id` int NOT NULL,
-  `user_id` int NOT NULL COMMENT 'é¡¹ç›®è´Ÿè´£äººID',
-  `title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'é¡¹ç›®åç§°',
-  `project_type` enum('national','provincial','school') COLLATE utf8mb4_unicode_ci DEFAULT 'school' COMMENT 'é¡¹ç›®çº§åˆ«',
-  `status` enum('draft','pending','approved','in_progress','midterm','concluded','rejected') COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT 'é¡¹ç›®çŠ¶æ€',
-  `progress` int DEFAULT '0' COMMENT 'é¡¹ç›®è¿›åº¦ç™¾åˆ†æ¯” (0-100)',
-  `description` text COLLATE utf8mb4_unicode_ci COMMENT 'é¡¹ç›®ç®€ä»‹',
-  `research_field` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ç ”ç©¶é¢†åŸŸ',
-  `keywords` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'å…³é”®è¯',
-  `start_date` date DEFAULT NULL COMMENT 'é¡¹ç›®å¼€å§‹æ—¥æœŸ',
-  `end_date` date DEFAULT NULL COMMENT 'é¡¹ç›®ç»“æŸæ—¥æœŸ',
-  `budget` decimal(10,2) DEFAULT '0.00' COMMENT 'é¡¹ç›®é¢„ç®—',
-  `spent_budget` decimal(10,2) DEFAULT '0.00' COMMENT 'å·²ä½¿ç”¨é¢„ç®—',
-  `teacher_id` int DEFAULT NULL COMMENT 'æŒ‡å¯¼æ•™å¸ˆID',
-  `team_members` text COLLATE utf8mb4_unicode_ci COMMENT 'å›¢é˜Ÿæˆå‘˜JSONæ•°ç»„',
-  `application_data` json DEFAULT NULL COMMENT 'ç”³è¯·è¡¨æ•°æ®',
-  `midterm_data` json DEFAULT NULL COMMENT 'ä¸­æœŸæŠ¥å‘Šæ•°æ®',
-  `conclusion_data` json DEFAULT NULL COMMENT 'ç»“é¢˜æŠ¥å‘Šæ•°æ®',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'åˆ›å»ºæ—¶é—´',
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'æ›´æ–°æ—¶é—´'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='é¡¹ç›®è¡¨';
-
--- --------------------------------------------------------
-
---
--- 表的结构 `reimbursements`
---
-
-CREATE TABLE `reimbursements` (
-  `id` int NOT NULL,
-  `project_id` int NOT NULL COMMENT 'æ‰€å±žé¡¹ç›®ID',
-  `user_id` int NOT NULL COMMENT 'ç”³è¯·äººID',
-  `amount` decimal(10,2) NOT NULL COMMENT 'æŠ¥é”€é‡‘é¢',
-  `category` enum('material','travel','service','equipment','other') COLLATE utf8mb4_unicode_ci DEFAULT 'other' COMMENT 'æŠ¥é”€ç±»åˆ«',
-  `description` text COLLATE utf8mb4_unicode_ci COMMENT 'æŠ¥é”€è¯´æ˜Ž',
-  `status` enum('pending','approved','rejected','paid') COLLATE utf8mb4_unicode_ci DEFAULT 'pending' COMMENT 'æŠ¥é”€çŠ¶æ€',
-  `receipt_files` json DEFAULT NULL COMMENT 'ç¥¨æ®æ–‡ä»¶è·¯å¾„æ•°ç»„',
-  `reviewer_id` int DEFAULT NULL COMMENT 'å®¡æ ¸äººID',
-  `review_comment` text COLLATE utf8mb4_unicode_ci COMMENT 'å®¡æ ¸æ„è§',
-  `reviewed_at` timestamp NULL DEFAULT NULL COMMENT 'å®¡æ ¸æ—¶é—´',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'åˆ›å»ºæ—¶é—´',
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'æ›´æ–°æ—¶é—´'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='æŠ¥é”€è®°å½•è¡¨';
-
--- --------------------------------------------------------
-
---
--- 表的结构 `users`
---
-
-CREATE TABLE `users` (
-  `id` int NOT NULL,
-  `student_id` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `username` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '自定义用户名',
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'åŠ å¯†åŽçš„å¯†ç ',
-  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'çœŸå®žå§“å',
-  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'é‚®ç®±åœ°å€',
-  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'è”ç³»ç”µè¯',
-  `role` enum('student','teacher','admin') COLLATE utf8mb4_unicode_ci DEFAULT 'student' COMMENT 'ç”¨æˆ·è§’è‰²',
-  `avatar` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'å¤´åƒè·¯å¾„',
-  `department` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'å­¦é™¢/éƒ¨é—¨',
-  `major` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ä¸“ä¸š',
-  `grade` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'å¹´çº§',
-  `is_active` tinyint(1) DEFAULT '1' COMMENT 'è´¦æˆ·æ˜¯å¦æ¿€æ´»',
-  `last_login` timestamp NULL DEFAULT NULL COMMENT 'æœ€åŽç™»å½•æ—¶é—´',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'åˆ›å»ºæ—¶é—´',
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'æ›´æ–°æ—¶é—´'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ç”¨æˆ·è¡¨';
-
---
--- 转存表中的数据 `users`
---
-
-INSERT INTO `users` (`id`, `student_id`, `username`, `password`, `name`, `email`, `phone`, `role`, `avatar`, `department`, `major`, `grade`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
+INSERT INTO `users` (`id`, `username`, `student_id`, `password`, `name`, `email`, `phone`, `role`, `avatar`, `department`, `major`, `grade`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
 (3, 'testuser1', NULL, '$2b$10$sdFhz7YWzVtNxGQZokMz5uRW1dVqQHxZQo8n./j7dcCzrZbR3/5NC', 'Test User', NULL, NULL, 'student', NULL, NULL, NULL, NULL, 1, '2026-02-12 18:28:59', '2026-02-12 18:05:24', '2026-02-12 18:28:59'),
 (4, '000000', 'test123', '$2b$10$Tl3wl7d/Z4kniwFurI0eKOU6Pd3l/gDExfraG96gfW.D5aGu2bRH.', 'superman', NULL, NULL, 'admin', NULL, NULL, NULL, NULL, 1, '2026-02-13 09:49:57', '2026-02-13 09:41:38', '2026-02-13 11:06:56');
 
--- --------------------------------------------------------
-
---
--- 替换视图以便查看 `v_project_overview`
--- （参见下面的实际视图）
---
-CREATE TABLE `v_project_overview` (
-`id` int
-,`title` varchar(200)
-,`status` enum('draft','pending','approved','in_progress','midterm','concluded','rejected')
-,`progress` int
-,`project_type` enum('national','provincial','school')
-,`created_at` timestamp
-,`owner_name` varchar(50)
-,`owner_student_id` varchar(20)
-,`teacher_name` varchar(50)
-,`file_count` bigint
-,`total_reimbursed` decimal(32,2)
-);
-
---
--- 转储表的索引
---
-
---
--- 表的索引 `audit_logs`
---
-ALTER TABLE `audit_logs`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_user_id` (`user_id`),
-  ADD KEY `idx_action` (`action`),
-  ADD KEY `idx_entity` (`entity_type`,`entity_id`),
-  ADD KEY `idx_timestamp` (`timestamp`);
-
---
--- 表的索引 `competitions`
---
-ALTER TABLE `competitions`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_category` (`category`),
-  ADD KEY `idx_level` (`level`),
-  ADD KEY `idx_status` (`status`);
-
---
--- 表的索引 `dachuang_guide_competitions`
---
-ALTER TABLE `dachuang_guide_competitions`
-  ADD PRIMARY KEY (`id`);
-
---
--- 表的索引 `files`
---
-ALTER TABLE `files`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_project_id` (`project_id`),
-  ADD KEY `idx_user_id` (`user_id`),
-  ADD KEY `idx_file_type` (`file_type`);
-
---
--- 表的索引 `projects`
---
-ALTER TABLE `projects`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_user_id` (`user_id`),
-  ADD KEY `idx_status` (`status`),
-  ADD KEY `idx_project_type` (`project_type`),
-  ADD KEY `idx_teacher_id` (`teacher_id`);
-
---
--- 表的索引 `reimbursements`
---
-ALTER TABLE `reimbursements`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `reviewer_id` (`reviewer_id`),
-  ADD KEY `idx_project_id` (`project_id`),
-  ADD KEY `idx_user_id` (`user_id`),
-  ADD KEY `idx_status` (`status`);
-
---
--- 表的索引 `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `student_id` (`student_id`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `student_id_2` (`student_id`),
-  ADD KEY `idx_student_id` (`student_id`),
-  ADD KEY `idx_role` (`role`),
-  ADD KEY `idx_department` (`department`);
-
---
--- 在导出的表使用AUTO_INCREMENT
---
-
---
--- 使用表AUTO_INCREMENT `audit_logs`
---
-ALTER TABLE `audit_logs`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- 使用表AUTO_INCREMENT `competitions`
---
-ALTER TABLE `competitions`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1011;
-
---
--- 使用表AUTO_INCREMENT `dachuang_guide_competitions`
---
-ALTER TABLE `dachuang_guide_competitions`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
-
---
--- 使用表AUTO_INCREMENT `files`
---
-ALTER TABLE `files`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
--- 使用表AUTO_INCREMENT `projects`
---
-ALTER TABLE `projects`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- 使用表AUTO_INCREMENT `reimbursements`
---
-ALTER TABLE `reimbursements`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- 使用表AUTO_INCREMENT `users`
---
-ALTER TABLE `users`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-
--- --------------------------------------------------------
-
---
--- 视图结构 `v_project_overview`
---
-DROP TABLE IF EXISTS `v_project_overview`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_project_overview`  AS SELECT `p`.`id` AS `id`, `p`.`title` AS `title`, `p`.`status` AS `status`, `p`.`progress` AS `progress`, `p`.`project_type` AS `project_type`, `p`.`created_at` AS `created_at`, `u`.`name` AS `owner_name`, `u`.`student_id` AS `owner_student_id`, `t`.`name` AS `teacher_name`, (select count(0) from `files` `f` where (`f`.`project_id` = `p`.`id`)) AS `file_count`, (select coalesce(sum(`r`.`amount`),0) from `reimbursements` `r` where ((`r`.`project_id` = `p`.`id`) and (`r`.`status` = 'paid'))) AS `total_reimbursed` FROM ((`projects` `p` left join `users` `u` on((`p`.`user_id` = `u`.`id`))) left join `users` `t` on((`p`.`teacher_id` = `t`.`id`))) ;
-
---
--- 限制导出的表
---
-
---
--- 限制表 `audit_logs`
---
-ALTER TABLE `audit_logs`
-  ADD CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
-
---
--- 限制表 `files`
---
-ALTER TABLE `files`
-  ADD CONSTRAINT `files_ibfk_1` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `files_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- 限制表 `projects`
---
-ALTER TABLE `projects`
-  ADD CONSTRAINT `projects_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `projects_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
-
---
--- 限制表 `reimbursements`
---
-ALTER TABLE `reimbursements`
-  ADD CONSTRAINT `reimbursements_ibfk_1` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `reimbursements_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `reimbursements_ibfk_3` FOREIGN KEY (`reviewer_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+-- 完成提示
+-- =====================================================
+-- 数据库模式创建完成！
+-- 请确保在 .env 文件中配置正确的数据库连接信息

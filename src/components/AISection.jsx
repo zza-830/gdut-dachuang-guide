@@ -65,7 +65,9 @@ const AISection = ({
 
   // 处理 AI 润色
   const handlePolish = useCallback(async () => {
-    if (!userInput.trim()) {
+    // 实施防御性编程修复，确保调用 trim 的是字符串
+    const safeInput = typeof userInput === 'string' ? userInput : String(userInput || '');
+    if (!safeInput.trim()) {
       safeShowToast('warning', '请先输入内容');
       return;
     }
@@ -138,7 +140,7 @@ const AISection = ({
           <CommonButton
             variant="primary"
             onClick={handlePolish}
-            disabled={isPolishing || !userInput.trim()}
+            disabled={isPolishing || !(typeof userInput === 'string' ? userInput : String(userInput || '')).trim()}
             style={{
               background: isPolishing ? '#a0a0a0' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               border: 'none',

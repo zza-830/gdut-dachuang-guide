@@ -11,7 +11,7 @@ const adminRoutes = require('./admin');
 const projectRoutes = require('./projects');
 const expenseRoutes = require('./expenses');
 const aiRoutes = require('./ai');
-// const userRoutes = require('./users');
+const userRoutes = require('./users');
 
 /**
  * API 健康检查
@@ -72,6 +72,6 @@ router.use('/admin', adminRoutes);
 router.use('/projects', projectRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/ai', aiRoutes);
-// router.use('/users', userRoutes);
+router.use('/users', userRoutes);
 
 module.exports = router;

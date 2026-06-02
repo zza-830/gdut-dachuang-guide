@@ -81,6 +81,10 @@ exports.getReviewList = async (req, res) => {
     const sql = `
       SELECT id, name, organizer, level, category,
              start_time, end_time, deadline, needs_review,
+             CASE 
+               WHEN start_time IS NOT NULL AND end_time IS NOT NULL THEN CONCAT('已自动滚动至 ', YEAR(start_time), ' 年，待确认')
+               ELSE '需人工手动核对'
+             END AS system_feedback,
              (${DYNAMIC_STATUS_EXPR}) AS computed_status
       FROM competitions
       WHERE needs_review = 1
@@ -92,6 +96,62 @@ exports.getReviewList = async (req, res) => {
   } catch (err) {
     console.error('getReviewList error:', err.message);
     res.status(500).json({ success: false, error: '获取审核列表失败' });
+  }
+};
+
+// POST /api/competitions/review/batch-confirm - 批量确认指定的 ID
+exports.batchConfirm = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, error: '参数错误，缺少赛事ID' });
+    }
+    const placeholders = ids.map(() => '?').join(',');
+    const sql = `
+      UPDATE competitions
+      SET needs_review = 0
+      WHERE id IN (${placeholders})
+    `;
+    const result = await query(sql, ids);
+    res.json({ success: true, message: `已成功确认 ${result.affectedRows} 项赛事时间` });
+  } catch (err) {
+    console.error('batchConfirm error:', err.message);
+    res.status(500).json({ success: false, error: '批量确认失败' });
+  }
+};
+
+// POST /api/competitions/review/batch-confirm-all - 一键全部已读
+exports.batchConfirmAll = async (req, res) => {
+  try {
+    const sql = `
+      UPDATE competitions
+      SET needs_review = 0
+      WHERE needs_review = 1
+    `;
+    const result = await query(sql);
+    res.json({ success: true, message: `已成功确认所有 ${result.affectedRows} 项待审核赛事` });
+  } catch (err) {
+    console.error('batchConfirmAll error:', err.message);
+    res.status(500).json({ success: false, error: '一键确认全部失败' });
+  }
+};
+
+// POST /api/competitions/review/batch-dismiss - 一键清除已处理通知
+exports.batchDismiss = async (req, res) => {
+  try {
+    // 归档所有已经自动滚动好（start_time 和 end_time 不为空）的通知
+    const sql = `
+      UPDATE competitions
+      SET needs_review = 0
+      WHERE needs_review = 1 
+        AND start_time IS NOT NULL 
+        AND end_time IS NOT NULL
+    `;
+    const result = await query(sql);
+    res.json({ success: true, message: `已成功清除 ${result.affectedRows} 项已处理通知` });
+  } catch (err) {
+    console.error('batchDismiss error:', err.message);
+    res.status(500).json({ success: false, error: '一键清除通知失败' });
   }
 };
 

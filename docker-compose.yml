@@ -59,6 +59,8 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       NODE_ENV: production
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      ALIYUN_DASHSCOPE_API_KEY: ${ALIYUN_DASHSCOPE_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
     volumes:
       - uploads_data:/app/uploads
     ports:

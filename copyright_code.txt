@@ -1,0 +1,3570 @@
+// --- File: src/main.jsx ---
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import 'bootstrap/dist/css/bootstrap.min.css'
+import './index.css'
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+// --- File: src/App.jsx ---
+// Enhanced for full process flow - Updated routing structure with Auth
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Sidebar from './components/Sidebar';
+import Footer from './components/Footer';
+import { FaBars } from 'react-icons/fa';
+import ToastContainer from './components/Toast';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import GuidePreparation from './pages/guide/GuidePreparation';
+import GuideApplicationForm from './pages/guide/GuideApplicationForm';
+import GuideRelatedCompetitions from './pages/guide/GuideRelatedCompetitions';
+import GuideMidterm from './pages/guide/GuideMidterm';
+import GuideConclusion from './pages/guide/GuideConclusion';
+import ProcessGuide from './pages/guide/ProcessGuide';
+import Competitions from './pages/Competitions';
+import CompetitionDetail from './pages/CompetitionDetail';
+import Reimbursements from './pages/Reimbursements';
+import Resources from './pages/Resources';
+import Tools from './pages/Tools';
+import AICreation from './pages/AICreation';
+import MyProjects from './pages/MyProjects';
+import ProjectDashboard from './pages/ProjectDashboard';
+import ProjectEdit from './pages/ProjectEdit';
+import ProjectConclusion from './pages/ProjectConclusion';
+import ProjectReimburse from './pages/ProjectReimburse';
+import ApplicationEditor from './pages/ApplicationEditor';
+import MidtermEditor from './pages/MidtermEditor';
+import FinalEditor from './pages/FinalEditor';
+import PatentEditor from './pages/PatentEditor';
+import AuditLog from './pages/AuditLog';
+import AdminDashboard from './pages/AdminDashboard';
+import CompetitionReview from './pages/CompetitionReview';
+import PageTransition from './components/PageTransition';
+import ErrorBoundary from './components/ErrorBoundary';
+import './App.css';
+
+// 路由保护组件 - 所有非登录页面都需要认证
+const RequireAuth = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  // 正在检查登录状态时，显示加载中（避免闪烁登录页）
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        minHeight: '100vh', backgroundColor: '#f0f4f8'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p style={{ marginTop: '16px', color: '#8c8c8c', fontSize: '14px' }}>正在验证登录状态...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+};
+
+// 主应用布局组件（带侧边栏）
+const AppLayout = ({ children }) => {
+  const [sidebarShow, setSidebarShow] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return (
+    <div className="app-container">
+      {/* Mobile Top Header Bar */}
+      {isMobile && (
+        <div className="mobile-header">
+          <button
+            className="mobile-hamburger"
+            onClick={() => setSidebarShow(true)}
+            aria-label="打开导航菜单"
+          >
+            <FaBars size={20} />
+          </button>
+          <span className="mobile-header-title">GDUT 大创指南</span>
+          <div style={{ width: '44px' }} />
+        </div>
+      )}
+      <div className="main-content-wrapper">
+        <Sidebar show={sidebarShow} onHide={() => setSidebarShow(false)} />
+        <main
+          className="main-content"
+          style={{
+            flexGrow: 1,
+            width: !isMobile ? 'calc(100% - 240px)' : '100%',
+            marginLeft: !isMobile ? '240px' : '0',
+            maxWidth: !isMobile ? 'calc(100% - 240px)' : '100%'
+          }}
+        >
+          <PageTransition key={location.pathname}>
+            {children}
+          </PageTransition>
+        </main>
+      </div>
+      <Footer />
+    </div>
+  );
+};
+
+// 应用路由
+const AppRoutes = () => {
+  return (
+    <Routes>
+      {/* 登录页 - 不需要认证，不显示侧边栏 */}
+      <Route path="/login" element={<Login />} />
+
+      {/* 所有其他路由 - 需要认证，显示侧边栏布局 */}
+      <Route path="/*" element={
+        <RequireAuth>
+          <AppLayout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/guide" element={<GuidePreparation />} />
+              <Route path="/guide/preparation" element={<GuidePreparation />} />
+              <Route path="/guide/application-form" element={<GuideApplicationForm />} />
+              <Route path="/guide/related-competitions" element={<GuideRelatedCompetitions />} />
+              <Route path="/guide/midterm" element={<GuideMidterm />} />
+              <Route path="/guide/conclusion" element={<GuideConclusion />} />
+              <Route path="/guide/process-map" element={<ProcessGuide />} />
+              <Route path="/competitions" element={<Competitions />} />
+              <Route path="/competitions/:id" element={<CompetitionDetail />} />
+              <Route path="/reimbursements" element={<Reimbursements />} />
+              <Route path="/resources" element={<Resources />} />
+              <Route path="/ai-creation" element={<AICreation />} />
+              <Route path="/tools" element={<Tools />} />
+              <Route path="/my-projects" element={<MyProjects />} />
+              <Route path="/project/:id" element={<ProjectDashboard />} />
+              <Route path="/project/:id/edit" element={<ProjectEdit />} />
+              <Route path="/project/:id/edit/application" element={<ApplicationEditor />} />
+              <Route path="/project/:id/edit/midterm" element={<MidtermEditor />} />
+              <Route path="/project/:id/edit/conclusion" element={<ProjectConclusion />} />
+              <Route path="/project/:id/edit/final" element={<FinalEditor />} />
+              <Route path="/project/:id/reimburse" element={<ProjectReimburse />} />
+              <Route path="/project/:id/logs" element={<AuditLog />} />
+              <Route path="/project/:id/application-editor" element={<ApplicationEditor />} />
+              <Route path="/application-editor" element={<ApplicationEditor />} />
+              <Route path="/midterm-editor" element={<MidtermEditor />} />
+              <Route path="/final-editor" element={<FinalEditor />} />
+              <Route path="/patent-editor" element={<PatentEditor />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/competition-review" element={<CompetitionReview />} />
+            </Routes>
+          </AppLayout>
+        </RequireAuth>
+      } />
+    </Routes>
+  );
+};
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <AppRoutes />
+          <ToastContainer />
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
+  );
+}
+
+export default App;
+
+// --- File: server/index.js ---
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+// 导入配置
+const { testConnection, query } = require('./config/db');
+
+// 导入定时任务
+const { registerRolloverJob } = require('./jobs/competitionRollover');
+
+// 导入路由
+const apiRoutes = require('./routes');
+
+// 导入中间件
+const { notFound, errorHandler } = require('./middleware/errorHandler');
+
+// 创建 Express 应用
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// =====================================================
+// 中间件配置
+// =====================================================
+
+// CORS 配置
+// Docker 部署时前端与 API 同源（均经 Nginx 反代），CORS 主要用于开发环境
+// 生产环境通过 CORS_ORIGIN 白名单 + 反向代理检测双重放行，避免因 IP/域名变更而报错
+app.use(cors({
+  origin: function (origin, callback) {
+    // 无 origin 的请求（如服务器间调用、同源请求）放行
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // 开发环境：允许 localhost 各端口
+    if (process.env.NODE_ENV !== 'production') {
+      if (/^https?:\/\/localhost(:\d+)?$/.test(origin) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+    }
+
+    // 生产环境：允许 CORS_ORIGIN 中配置的域名
+    const corsOrigin = process.env.CORS_ORIGIN || '';
+    const allowedOrigins = corsOrigin.split(',').map(s => s.trim()).filter(Boolean);
+
+    if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // 生产环境兜底：反射请求的 origin
+    // Docker 架构下前端与 API 同源（Nginx 反代），CORS 不是安全边界，
+    // 真正的安全由 JWT 认证保障。避免因 CORS_ORIGIN 未及时更新导致用户无法使用。
+    if (process.env.NODE_ENV === 'production') {
+      return callback(null, true);
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// 解析 JSON 请求体
+app.use(express.json({ limit: '10mb' }));
+
+// 解析 URL 编码的请求体
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 静态文件服务 (用于上传的文件)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 请求日志 (开发环境)
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} | ${req.method} ${req.path}`);
+    next();
+  });
+}
+
+// =====================================================
+// 路由配置
+// =====================================================
+
+// API 路由
+app.use('/api', apiRoutes);
+
+// 根路由
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'GDUT 大创平台后端服务',
+    version: '1.0.0',
+    documentation: '/api'
+  });
+});
+
+// =====================================================
+// 错误处理
+// =====================================================
+
+// 404 处理
+app.use(notFound);
+
+// 全局错误处理
+app.use(errorHandler);
+
+// =====================================================
+// 启动服务器
+// =====================================================
+
+// 确保关键数据表存在，并补齐缺失列
+const ensureTables = async () => {
+  try {
+    // 创建 audit_logs 表（如果不存在）
+    await query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT DEFAULT NULL,
+        user_name VARCHAR(50) DEFAULT NULL,
+        action VARCHAR(100) NOT NULL,
+        entity_type VARCHAR(50) DEFAULT NULL,
+        entity_id INT DEFAULT NULL,
+        details TEXT,
+        ip_address VARCHAR(45) DEFAULT NULL,
+        user_agent VARCHAR(255) DEFAULT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_entity (entity_type, entity_id),
+        INDEX idx_timestamp (timestamp)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // 补齐 audit_logs 可能缺失的列
+    const auditCols = await query(`SHOW COLUMNS FROM audit_logs`);
+    const auditColNames = auditCols.map(c => c.Field);
+    if (!auditColNames.includes('user_name')) {
+      await query(`ALTER TABLE audit_logs ADD COLUMN user_name VARCHAR(50) DEFAULT NULL AFTER user_id`);
+      console.log('  ➕ Added missing column: audit_logs.user_name');
+    }
+    if (!auditColNames.includes('entity_type')) {
+      await query(`ALTER TABLE audit_logs ADD COLUMN entity_type VARCHAR(50) DEFAULT NULL`);
+      console.log('  ➕ Added missing column: audit_logs.entity_type');
+    }
+    if (!auditColNames.includes('entity_id')) {
+      await query(`ALTER TABLE audit_logs ADD COLUMN entity_id INT DEFAULT NULL`);
+      console.log('  ➕ Added missing column: audit_logs.entity_id');
+    }
+    if (!auditColNames.includes('details')) {
+      await query(`ALTER TABLE audit_logs ADD COLUMN details TEXT`);
+      console.log('  ➕ Added missing column: audit_logs.details');
+    }
+    if (!auditColNames.includes('ip_address')) {
+      await query(`ALTER TABLE audit_logs ADD COLUMN ip_address VARCHAR(45) DEFAULT NULL`);
+      console.log('  ➕ Added missing column: audit_logs.ip_address');
+    }
+    if (!auditColNames.includes('user_agent')) {
+      await query(`ALTER TABLE audit_logs ADD COLUMN user_agent VARCHAR(255) DEFAULT NULL`);
+      console.log('  ➕ Added missing column: audit_logs.user_agent');
+    }
+    if (!auditColNames.includes('timestamp')) {
+      await query(`ALTER TABLE audit_logs ADD COLUMN timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+      console.log('  ➕ Added missing column: audit_logs.timestamp');
+    }
+
+    // 创建 expenses 表（如果不存在）
+    await query(`
+      CREATE TABLE IF NOT EXISTS expenses (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        project_id INT NOT NULL,
+        item_name VARCHAR(200) NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        expense_date DATE NOT NULL,
+        location VARCHAR(200) DEFAULT NULL,
+        invoice_path VARCHAR(500) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_project_id (project_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // 补齐 expenses 可能缺失的列
+    const expCols = await query(`SHOW COLUMNS FROM expenses`);
+    const expColNames = expCols.map(c => c.Field);
+    if (!expColNames.includes('location')) {
+      await query(`ALTER TABLE expenses ADD COLUMN location VARCHAR(200) DEFAULT NULL`);
+      console.log('  ➕ Added missing column: expenses.location');
+    }
+    if (!expColNames.includes('invoice_path')) {
+      await query(`ALTER TABLE expenses ADD COLUMN invoice_path VARCHAR(500) DEFAULT NULL`);
+      console.log('  ➕ Added missing column: expenses.invoice_path');
+    }
+
+    // ── competitions 表：补齐动态状态所需的新字段 ──────────────────────────
+    const compCols = await query(`SHOW COLUMNS FROM competitions`);
+    const compColNames = compCols.map(c => c.Field);
+
+    if (!compColNames.includes('start_time')) {
+      await query(`ALTER TABLE competitions ADD COLUMN start_time DATETIME DEFAULT NULL COMMENT '赛事开始时间'`);
+      console.log('  ➕ Added missing column: competitions.start_time');
+    }
+    if (!compColNames.includes('end_time')) {
+      await query(`ALTER TABLE competitions ADD COLUMN end_time DATETIME DEFAULT NULL COMMENT '赛事结束时间'`);
+      console.log('  ➕ Added missing column: competitions.end_time');
+    }
+    if (!compColNames.includes('needs_review')) {
+      await query(`ALTER TABLE competitions ADD COLUMN needs_review TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否需要管理员核对日期（定时任务自动滚动后置1）'`);
+      console.log('  ➕ Added missing column: competitions.needs_review');
+    }
+    if (!compColNames.includes('updated_at')) {
+      await query(`ALTER TABLE competitions ADD COLUMN updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间'`);
+      console.log('  ➕ Added missing column: competitions.updated_at');
+    }
+
+    console.log('✅ Critical tables (audit_logs, expenses, competitions) ensured with all columns.');
+  } catch (err) {
+    console.error('⚠️  Table auto-creation/migration failed:', err.message);
+  }
+};
+
+const startServer = async () => {
+  try {
+    // 测试数据库连接 (可选，如果数据库未配置则跳过)
+    const dbConnected = await testConnection();
+
+    if (!dbConnected) {
+      console.log('⚠️  Database not connected. Running in limited mode.');
+      console.log('   Please configure your .env file and ensure MySQL is running.');
+    } else {
+      // 确保关键表存在并补齐字段
+      await ensureTables();
+
+      // 注册竞赛跨年自动滚动定时任务
+      registerRolloverJob();
+    }
+
+    // 启动 HTTP 服务器
+    app.listen(PORT, () => {
+      console.log('');
+      console.log('╔════════════════════════════════════════════════════════╗');
+      console.log('║       GDUT 大创平台后端服务已启动                      ║');
+      console.log('╠════════════════════════════════════════════════════════╣');
+      console.log(`║  🚀 Server:     http://localhost:${PORT}                  ║`);
+      console.log(`║  📡 API:        http://localhost:${PORT}/api              ║`);
+      console.log(`║  💚 Health:     http://localhost:${PORT}/api/health       ║`);
+      console.log(`║  🌍 Environment: ${process.env.NODE_ENV || 'development'}                       ║`);
+      console.log('╚════════════════════════════════════════════════════════╝');
+      console.log('');
+      console.log('🚀 App is running! Open: http://localhost:5173');
+      console.log('');
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error.message);
+    process.exit(1);
+  }
+};
+
+// 启动服务器
+startServer();
+
+// 优雅关闭
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+module.exports = app;
+
+// --- File: server/config/db.js ---
+const mysql = require('mysql2/promise');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// 创建数据库连接池
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'gdut_dachuang',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
+});
+
+// 测试数据库连接
+const testConnection = async () => {
+  try {
+    const connection = await pool.getConnection();
+    console.log('✅ MySQL Database connected successfully!');
+    connection.release();
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error.message);
+    console.error('   Please check your .env configuration and ensure MySQL is running.');
+    return false;
+  }
+};
+
+// 执行查询的辅助函数
+// 使用 pool.query() 而非 pool.execute()，避免预处理语句在连接池中缓存失效的问题
+const query = async (sql, params) => {
+  try {
+    const [results] = await pool.query(sql, params || []);
+    return results;
+  } catch (error) {
+    console.error('Database query error:', error.message, '\nSQL:', sql);
+    throw error;
+  }
+};
+
+module.exports = {
+  pool,
+  testConnection,
+  query
+};
+
+// --- File: server/routes/index.js ---
+const express = require('express');
+const router = express.Router();
+
+// 导入子路由
+const authRoutes = require('./auth');
+const fileRoutes = require('./files');
+const logRoutes = require('./logs');
+const competitionRoutes = require('./competitions');
+const guideCompetitionRoutes = require('./guideCompetitions');
+const adminRoutes = require('./admin');
+const projectRoutes = require('./projects');
+const expenseRoutes = require('./expenses');
+const aiRoutes = require('./ai');
+const userRoutes = require('./users');
+
+/**
+ * API 健康检查
+ * GET /api/health
+ */
+router.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'ok',
+    message: 'Backend is running!',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+/**
+ * API 信息
+ * GET /api
+ */
+router.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'GDUT 大创平台 API',
+    version: '1.0.0',
+    endpoints: {
+      health: 'GET /api/health',
+      auth: {
+        login: 'POST /api/auth/login',
+        register: 'POST /api/auth/register',
+        profile: 'GET /api/auth/profile'
+      },
+      users: {
+        list: 'GET /api/users',
+        detail: 'GET /api/users/:id'
+      },
+      projects: {
+        list: 'GET /api/projects',
+        create: 'POST /api/projects',
+        detail: 'GET /api/projects/:id',
+        update: 'PUT /api/projects/:id',
+        delete: 'DELETE /api/projects/:id'
+      },
+      files: {
+        upload: 'POST /api/files/upload',
+        download: 'GET /api/files/:id/download'
+      }
+    }
+  });
+});
+
+// 注册子路由
+router.use('/auth', authRoutes);
+router.use('/files', fileRoutes);
+router.use('/logs', logRoutes);
+router.use('/competitions', competitionRoutes);
+router.use('/guide-competitions', guideCompetitionRoutes);
+router.use('/admin', adminRoutes);
+router.use('/projects', projectRoutes);
+router.use('/expenses', expenseRoutes);
+router.use('/ai', aiRoutes);
+router.use('/users', userRoutes);
+
+module.exports = router;
+
+// --- File: server/controllers/projectController.js ---
+const { query } = require('../config/db');
+const { logAudit } = require('../utils/auditLog');
+
+const { pool } = require('../config/db');
+
+/**
+ * 创建项目 — 插入创建者为 captain，并写入 project_members 表
+ * POST /api/projects
+ */
+const createProject = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { title, duration, description } = req.body;
+    if (!title || !title.trim()) {
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({ success: false, message: '项目名称不能为空' });
+    }
+
+    const [users] = await connection.query(
+      'SELECT name FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    const userName = users.length > 0 ? users[0].name : '未知用户';
+
+    const [result] = await connection.query(
+      `INSERT INTO projects (user_id, title, description, status, budget, spent_budget)
+       VALUES (?, ?, ?, 'pending', 0, 0)`,
+      [req.user.id, title.trim(), description || '']
+    );
+    const projectId = result.insertId;
+
+    await connection.query(
+      `INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, 'captain')`,
+      [projectId, req.user.id]
+    );
+
+    await connection.commit();
+
+    logAudit({
+      userId: req.user.id,
+      userName,
+      action: 'create_project',
+      entityType: 'project',
+      entityId: projectId,
+      details: { project_id: projectId, name: title.trim() }
+    }).catch(err => console.error('[AuditLog] create_project failed:', err.message));
+
+    res.status(201).json({
+      success: true,
+      message: '项目创建成功',
+      data: {
+        id: projectId,
+        title: title.trim(),
+        status: 'pending',
+        role: '队长'
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Create project error:', error);
+    res.status(500).json({ success: false, message: '创建项目失败' });
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * 获取当前用户的项目列表（包含作为成员参与的项目）
+ * GET /api/projects
+ */
+const getProjects = async (req, res) => {
+  try {
+    const projects = await query(
+      `SELECT p.id, p.title, p.status, p.budget, p.spent_budget, p.created_at, pm.role 
+       FROM projects p
+       JOIN project_members pm ON p.id = pm.project_id
+       WHERE pm.user_id = ?
+       ORDER BY p.created_at DESC`,
+      [req.user.id]
+    );
+
+    const mapped = projects.map(p => {
+      const roleMap = { captain: '队长', member: '成员', advisor: '指导老师' };
+      const statusMap = { draft: 'pending', pending: 'pending', approved: 'active', in_progress: 'active', midterm: 'active', concluded: 'completed', rejected: 'pending' };
+      return {
+        id: p.id,
+        name: p.title,
+        role: roleMap[p.role] || '成员',
+        status: statusMap[p.status] || 'active',
+        budget: parseFloat(p.budget) || 0,
+        spent_budget: parseFloat(p.spent_budget) || 0,
+        created_at: p.created_at
+      };
+    });
+
+    res.json({ success: true, data: mapped });
+  } catch (error) {
+    console.error('Get projects error:', error);
+    res.status(500).json({ success: false, message: '获取项目列表失败' });
+  }
+};
+
+/**
+ * 获取单个项目详情及成员
+ * GET /api/projects/:id
+ */
+const getProject = async (req, res) => {
+  try {
+    const [project] = await query(
+      `SELECT p.*, u.name AS owner_name
+       FROM projects p
+       LEFT JOIN users u ON p.user_id = u.id
+       WHERE p.id = ?`,
+      [req.params.id]
+    );
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: '项目不存在' });
+    }
+
+    // 检查访问权限
+    const authCheck = await query(
+      'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+    if (authCheck.length === 0 && req.user.role !== 'admin') {
+       return res.status(403).json({ success: false, message: '无权访问该项目' });
+    }
+
+    const teamMembers = await query(
+      `SELECT u.id, u.name, u.student_id, u.email, u.phone, u.department, u.major, u.grade, pm.role, pm.joined_at
+       FROM project_members pm
+       JOIN users u ON pm.user_id = u.id
+       WHERE pm.project_id = ?`,
+      [req.params.id]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ...project,
+        currentUserRole: authCheck.length > 0 ? authCheck[0].role : null,
+        team_members: teamMembers.map(m => ({
+          id: m.id,
+          name: m.name,
+          studentId: m.student_id,
+          email: m.email,
+          phone: m.phone,
+          department: m.department,
+          major: m.major,
+          grade: m.grade,
+          role: m.role,
+          joinedAt: m.joined_at
+        })),
+        budget: parseFloat(project.budget) || 0,
+        spent_budget: parseFloat(project.spent_budget) || 0
+      }
+    });
+  } catch (error) {
+    console.error('Get project error:', error);
+    res.status(500).json({ success: false, message: '获取项目详情失败' });
+  }
+};
+
+/**
+ * 更新项目经费总额
+ * PATCH /api/projects/:id/funding
+ */
+const updateFunding = async (req, res) => {
+  try {
+    let { budget } = req.body;
+    budget = parseFloat(budget);
+
+    if (isNaN(budget)) {
+      return res.status(400).json({ success: false, message: '经费金额无效' });
+    }
+    // Clamp 0 ~ 20000
+    if (budget < 0) budget = 0;
+    if (budget > 20000) budget = 20000;
+
+    // Fetch previous budget for audit context
+    const [prev] = await query('SELECT budget FROM projects WHERE id = ?', [req.params.id]);
+    const oldBudget = prev ? parseFloat(prev.budget) || 0 : 0;
+
+    await query('UPDATE projects SET budget = ? WHERE id = ?', [budget, req.params.id]);
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'update_funding',
+      entityType: 'project',
+      entityId: req.params.id,
+      details: { project_id: parseInt(req.params.id), old_budget: oldBudget, new_budget: budget }
+    });
+
+    res.json({ success: true, data: { budget } });
+  } catch (error) {
+    console.error('Update funding error:', error);
+    res.status(500).json({ success: false, message: '更新经费失败' });
+  }
+};
+
+/**
+ * 添加项目成员
+ * POST /api/projects/:id/members
+ */
+const addMember = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const { userId, role } = req.body;
+    const projectId = req.params.id;
+
+    if (!userId) {
+      connection.release();
+      return res.status(400).json({ success: false, message: '必须提供用户ID' });
+    }
+
+    await connection.beginTransaction();
+
+    // 检查是否有权限 (必须是 captain)
+    const [authCheck] = await connection.query(
+      'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, req.user.id]
+    );
+    if (authCheck.length === 0 || authCheck[0].role !== 'captain') {
+       await connection.rollback();
+       connection.release();
+       return res.status(403).json({ success: false, message: '只有本项目的队长可以添加成员' });
+    }
+
+    // 检查用户是否存在
+    const [users] = await connection.query('SELECT name FROM users WHERE id = ?', [userId]);
+    if (users.length === 0) {
+       await connection.rollback();
+       connection.release();
+       return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+
+    // 检查是否已经是成员
+    const [existing] = await connection.query(
+      'SELECT id FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, userId]
+    );
+    if (existing.length > 0) {
+       await connection.rollback();
+       connection.release();
+       return res.status(400).json({ success: false, message: '该用户已经是项目成员' });
+    }
+
+    await connection.query(
+      'INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)',
+      [projectId, userId, role || 'member']
+    );
+
+    await connection.commit();
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'add_member',
+      entityType: 'project',
+      entityId: parseInt(projectId),
+      details: { project_id: parseInt(projectId), added_user_id: userId, added_user_name: users[0].name }
+    });
+
+    res.json({ success: true, message: '添加成员成功' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Add member error:', error);
+    res.status(500).json({ success: false, message: '添加成员失败' });
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * 移除项目成员
+ * DELETE /api/projects/:id/members/:userId
+ */
+const removeMember = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const projectId = req.params.id;
+    const targetUserId = req.params.userId;
+
+    await connection.beginTransaction();
+
+    // 检查权限
+    const [authCheck] = await connection.query(
+      'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, req.user.id]
+    );
+    if ((authCheck.length === 0 || authCheck[0].role !== 'captain') && req.user.id != targetUserId) {
+       await connection.rollback();
+       connection.release();
+       return res.status(403).json({ success: false, message: '无权移除该成员' });
+    }
+
+    const [target] = await connection.query(
+      'SELECT role FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, targetUserId]
+    );
+    if (target.length === 0) {
+       await connection.rollback();
+       connection.release();
+       return res.status(404).json({ success: false, message: '成员不存在' });
+    }
+    if (target[0].role === 'captain') {
+       await connection.rollback();
+       connection.release();
+       return res.status(400).json({ success: false, message: '不能移除队长，请先转让队长身份' });
+    }
+
+    const [users] = await connection.query('SELECT name FROM users WHERE id = ?', [targetUserId]);
+
+    await connection.query(
+      'DELETE FROM project_members WHERE project_id = ? AND user_id = ?',
+      [projectId, targetUserId]
+    );
+
+    await connection.commit();
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'remove_member',
+      entityType: 'project',
+      entityId: parseInt(projectId),
+      details: { project_id: parseInt(projectId), removed_user_id: targetUserId, removed_user_name: users.length > 0 ? users[0].name : 'Unknown' }
+    });
+
+    res.json({ success: true, message: '移除成员成功' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Remove member error:', error);
+    res.status(500).json({ success: false, message: '移除成员失败' });
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * 删除项目
+ * DELETE /api/projects/:id
+ */
+const deleteProject = async (req, res) => {
+  try {
+    const result = await query('DELETE FROM projects WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: '项目不存在或无权删除' });
+    }
+    res.json({ success: true, message: '项目已删除' });
+  } catch (error) {
+    console.error('Delete project error:', error);
+    res.status(500).json({ success: false, message: '删除项目失败' });
+  }
+};
+
+/**
+ * 重命名项目
+ * PATCH /api/projects/:id/name
+ */
+const renameProject = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: '项目名称不能为空' });
+    }
+    const trimmedName = name.trim();
+
+    // 验证项目归属
+    const [prev] = await query(
+      'SELECT title FROM projects WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+    if (!prev) {
+      return res.status(404).json({ success: false, message: '项目不存在或无权修改' });
+    }
+
+    // 名称未变化时直接返回成功，无需写库
+    if (prev.title === trimmedName) {
+      return res.json({ success: true, data: { id: req.params.id, name: trimmedName } });
+    }
+
+    await query(
+      'UPDATE projects SET title = ? WHERE id = ? AND user_id = ?',
+      [trimmedName, req.params.id, req.user.id]
+    );
+
+    logAudit({
+      userId: req.user.id,
+      action: 'rename_project',
+      entityType: 'project',
+      entityId: parseInt(req.params.id),
+      details: { project_id: parseInt(req.params.id), old_name: prev.title, new_name: trimmedName }
+    }).catch(err => console.error('[AuditLog] rename_project failed:', err.message));
+
+    res.json({ success: true, data: { id: req.params.id, name: trimmedName } });
+  } catch (error) {
+    console.error('Rename project error:', error);
+    res.status(500).json({ success: false, message: '重命名项目失败' });
+  }
+};
+
+module.exports = { createProject, getProjects, getProject, updateFunding, addMember, removeMember, deleteProject, renameProject };
+
+// --- File: server/controllers/adminController.js ---
+const { query } = require('../config/db');
+
+/**
+ * 获取所有用户列表 (仅管理员)
+ * GET /api/admin/users
+ */
+const getUsers = async (req, res) => {
+  try {
+    const users = await query(
+      'SELECT id, student_id, username, name, role, email, department, is_active, created_at FROM users ORDER BY created_at DESC'
+    );
+    res.json({ success: true, data: users });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ success: false, message: '获取用户列表失败' });
+  }
+};
+
+/**
+ * 删除用户 (仅管理员，不能删除自己)
+ * DELETE /api/admin/users/:id
+ */
+const deleteUser = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    if (userId === req.user.id) {
+      return res.status(400).json({ success: false, message: '不能删除自己的账户' });
+    }
+    const result = await query('DELETE FROM users WHERE id = ?', [userId]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    res.json({ success: true, message: '用户已删除' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ success: false, message: '删除用户失败' });
+  }
+};
+
+module.exports = { getUsers, deleteUser };
+
+// --- File: src/services/aiService.js ---
+// ============================================
+// AI Service - 通过后端代理调用 AI 接口
+// ============================================
+// 所有 AI 请求均通过自有后端 /api/ai/* 转发，
+// API Key 仅存于后端环境变量，前端零泄露。
+
+import api from './api';
+import { APPLICATION_PROMPTS, FIELD_KEY_MAP, getPromptByLabel } from '../data/applicationPrompts';
+import { MIDTERM_PROMPTS, FINAL_PROMPTS } from '../data/reportPrompts';
+
+// ============================================
+// CONFIGURATION
+// ============================================
+const USE_MOCK = false; // Set to true to use mock mode without API calls
+const MOCK_DELAY = 1500;
+
+// ============================================
+// LEGACY SYSTEM PROMPTS - For non-application fields
+// ============================================
+const LEGACY_PROMPTS = {
+  '已取得成果': '你是一位学术成果评审专家。请润色以下成果描述，使其数据详实、成果突出、表述专业。',
+  '项目进展小结': '你是一位项目进度评估专家。请优化以下进展小结，使其条理清晰、重点突出。',
+  '今后计划': '你是一位项目规划专家。请优化以下计划描述，使其目标明确、措施具体、可执行性强。',
+  '项目总结': '你是一位项目结题评审专家。请润色以下项目总结，使其全面、客观、专业。',
+  '经费决算': '你是一位财务管理专家。请优化以下经费说明，使其清晰、规范、合理。',
+  '团队成长与收获': '你是一位教育评估专家。请润色以下团队成长描述，使其真实、具体、有感染力。',
+  'default': '你是一位专业的学术写作助手。请润色以下文本，使其更加专业、清晰、有说服力。保持原意的同时，优化语言表达，符合大学创新训练项目申报书的学术规范。'
+};
+
+// ============================================
+// MOCK RESPONSES
+// ============================================
+const generateMockResponse = (userDraft, sectionType) => {
+  const mockPrefix = '✅ [AI 润色结果]\n\n';
+  const mockSuffix = '\n\n---\n📝 提示：这是模拟生成的内容。';
+
+  const mockTemplates = {
+    'project_intro': `${mockPrefix}本项目聚焦于${userDraft.substring(0, 20)}...领域的创新研究。\n\n【项目背景】\n随着相关技术的快速发展，该领域面临着新的机遇与挑战。\n\n【核心目标】\n本项目旨在通过系统性研究，探索创新解决方案，推动领域发展。\n\n【预期成果】\n项目完成后，预计将形成具有自主知识产权的技术方案。${mockSuffix}`,
+    'research_purpose': `${mockPrefix}【研究背景与痛点】\n1. 当前领域存在效率低下的问题\n2. 传统方法难以满足新需求\n3. 缺乏系统性的解决方案\n\n【研究目标】\n本项目旨在解决上述痛点，通过创新技术手段实现突破。\n\n【预期价值】\n项目成果将为相关领域提供重要参考。${mockSuffix}`,
+    'default': `${mockPrefix}${userDraft}\n\n【优化建议】\n1. 建议增加具体的数据支撑\n2. 可以补充相关的理论依据\n3. 注意语言的学术规范性\n4. 建议增强逻辑连贯性${mockSuffix}`
+  };
+
+  const key = FIELD_KEY_MAP[sectionType] || sectionType;
+  return mockTemplates[key] || mockTemplates['default'];
+};
+
+// ============================================
+// GET SYSTEM PROMPT
+// ============================================
+const getSystemPrompt = (sectionType) => {
+  if (APPLICATION_PROMPTS[sectionType]) return APPLICATION_PROMPTS[sectionType];
+  if (MIDTERM_PROMPTS && MIDTERM_PROMPTS[sectionType]) return MIDTERM_PROMPTS[sectionType];
+  if (FINAL_PROMPTS && FINAL_PROMPTS[sectionType]) return FINAL_PROMPTS[sectionType];
+
+  const key = FIELD_KEY_MAP[sectionType];
+  if (key && APPLICATION_PROMPTS[key]) return APPLICATION_PROMPTS[key];
+  if (LEGACY_PROMPTS[sectionType]) return LEGACY_PROMPTS[sectionType];
+
+  return getPromptByLabel(sectionType);
+};
+
+// ============================================
+// MAIN API FUNCTION - polishText (通过后端 Qwen 代理)
+// ============================================
+export const polishText = async (userDraft, sectionKey = 'default') => {
+  if (!userDraft || typeof userDraft !== 'string') {
+    return '请先输入内容，AI 将帮助您润色和优化文本。';
+  }
+
+  const trimmedDraft = userDraft.trim();
+  if (trimmedDraft.length === 0) {
+    return '请先输入内容，AI 将帮助您润色和优化文本。';
+  }
+
+  if (USE_MOCK) {
+    await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
+    return generateMockResponse(trimmedDraft, sectionKey);
+  }
+
+  try {
+    const systemPrompt = getSystemPrompt(sectionKey);
+
+    console.log('[AI Service] Calling backend /api/ai/qwen ...');
+    console.log('[AI Service] Section Key:', sectionKey);
+
+    const response = await api.post('/ai/qwen', {
+      text: trimmedDraft,
+      sectionKey,
+      systemPrompt
+    });
+
+    if (response.data?.success && response.data?.data?.content) {
+      return response.data.data.content;
+    }
+
+    throw new Error(response.data?.message || 'AI 返回格式异常');
+  } catch (error) {
+    console.error('[AI Service] Error:', error);
+
+    const message = error.response?.data?.message || error.message || '未知错误';
+
+    // 401 表示未登录，不回退 mock，直接提示
+    if (error.response?.status === 401) {
+      throw new Error('请先登录后再使用 AI 功能');
+    }
+
+    // 其他错误回退到 mock
+    console.warn('[AI Service] Falling back to mock mode due to error');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return `⚠️ AI 服务暂时不可用（${message}），已使用模拟结果：\n\n${generateMockResponse(trimmedDraft, sectionKey)}`;
+  }
+};
+
+// ============================================
+// DEEPSEEK GENERATION (通过后端代理)
+// ============================================
+export const generateDeepSeekContent = async (text, systemPrompt) => {
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return '请先输入内容。';
+  }
+
+  try {
+    const response = await api.post('/ai/deepseek', {
+      text: text.trim(),
+      systemPrompt
+    });
+
+    if (response.data?.success && response.data?.data?.content) {
+      return response.data.data.content;
+    }
+
+    throw new Error(response.data?.message || 'AI 返回格式异常');
+  } catch (error) {
+    console.error('[AI Service] DeepSeek error:', error);
+    if (error.response?.status === 401) {
+      throw new Error('请先登录后再使用 AI 功能');
+    }
+    throw new Error(error.response?.data?.message || error.message || 'DeepSeek 服务请求失败');
+  }
+};
+
+// ============================================
+// LEGACY EXPORT
+// ============================================
+export const generatePolishedText = polishText;
+
+// ============================================
+// BATCH PROCESSING
+// ============================================
+export const polishAllFields = async (formData) => {
+  const result = {};
+  for (const [key, value] of Object.entries(formData)) {
+    if (value && value.trim()) {
+      try {
+        result[key] = await polishText(value, key);
+      } catch (error) {
+        console.error(`[AI Service] Error polishing field ${key}:`, error);
+        result[key] = value;
+      }
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+};
+
+// ============================================
+// SERVICE STATUS CHECK
+// ============================================
+export const getServiceStatus = () => {
+  return {
+    isConfigured: true, // 密钥在后端，前端无法判断，默认 true
+    isMockMode: USE_MOCK,
+    apiUrl: '/api/ai/qwen',
+    model: 'qwen-plus'
+  };
+};
+
+// ============================================
+// AVAILABLE PROMPTS
+// ============================================
+export const getAvailablePromptKeys = () => {
+  return Object.keys(APPLICATION_PROMPTS);
+};
+
+export default {
+  polishText,
+  generatePolishedText: polishText,
+  generateDeepSeekContent,
+  polishAllFields,
+  getServiceStatus,
+  getAvailablePromptKeys
+};
+
+// --- File: src/pages/ApplicationEditor.jsx ---
+// ApplicationEditor - 申报书 AI 编辑器页面
+// 包含 13 个 AI 辅助编辑区块
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Card, Alert, ProgressBar } from 'react-bootstrap';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  FaArrowLeft,
+  FaSave,
+  FaFileAlt,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaDownload,
+  FaTrash,
+  FaCopy,
+  FaFileExport
+} from 'react-icons/fa';
+import CommonButton from '../components/CommonButton';
+import AISection from '../components/AISection';
+import { showToast } from '../components/Toast';
+import { exportToWord } from '../utils/exportToWord';
+
+// 安全的 Toast 调用
+const safeShowToast = (type, message) => {
+  try {
+    if (typeof showToast === 'function') {
+      showToast(type, message);
+    } else if (window.showToast) {
+      window.showToast(type, message);
+    } else {
+      console.log(`[Toast ${type}]: ${message}`);
+    }
+  } catch (e) {
+    console.error('Toast error:', e);
+  }
+};
+
+// 13 个申报书字段配置
+const SECTIONS_CONFIG = [
+  {
+    key: 'project_intro',
+    title: '1. 项目简介',
+    placeholder: '请输入项目的核心技术、应用场景、创新点等关键信息...',
+    inputRows: 4,
+    outputRows: 8
+  },
+  {
+    key: 'host_research',
+    title: '2. 第一主持人科研情况',
+    placeholder: '请输入负责人曾参与的科研项目、角色、成果等（如无可填"无"）...',
+    inputRows: 2,
+    outputRows: 3
+  },
+  {
+    key: 'teacher_projects',
+    title: '3. 指导教师承担科研课题情况',
+    placeholder: '请输入指导教师的课题名称、编号、经费、时间、角色等信息...',
+    inputRows: 4,
+    outputRows: 6
+  },
+  {
+    key: 'teacher_support',
+    title: '4. 指导教师对本项目的支持情况',
+    placeholder: '请输入指导教师将提供的具体支持形式...',
+    inputRows: 3,
+    outputRows: 4
+  },
+  {
+    key: 'research_purpose',
+    title: '5. 研究目的',
+    placeholder: '请输入研究背景、痛点问题、核心目标、预期价值等...',
+    inputRows: 4,
+    outputRows: 8
+  },
+  {
+    key: 'research_content',
+    title: '6. 研究内容',
+    placeholder: '请输入具体的研究内容、技术方法、系统模块等...',
+    inputRows: 5,
+    outputRows: 10
+  },
+  {
+    key: 'research_status',
+    title: '7. 国内外研究现状和发展动态',
+    placeholder: '请输入国内外相关研究案例、市场数据、发展趋势等...',
+    inputRows: 5,
+    outputRows: 10
+  },
+  {
+    key: 'innovation',
+    title: '8. 创新点与项目特色',
+    placeholder: '请输入项目的技术创新点、特色优势、与传统方案的对比等...',
+    inputRows: 4,
+    outputRows: 8
+  },
+  {
+    key: 'tech_route',
+    title: '9. 技术路线、拟解决的问题及预期成果',
+    placeholder: '请输入技术实现步骤、待解决问题、预期产出成果等...',
+    inputRows: 5,
+    outputRows: 10
+  },
+  {
+    key: 'schedule',
+    title: '10. 项目研究进度安排',
+    placeholder: '请输入各阶段的时间安排、具体任务、里程碑等...',
+    inputRows: 4,
+    outputRows: 8
+  },
+  {
+    key: 'foundation',
+    title: '11. 已有基础',
+    placeholder: '请输入团队已有的研究积累、技术储备、资源条件等...',
+    inputRows: 3,
+    outputRows: 5
+  },
+  {
+    key: 'related_achievements',
+    title: '12. 与本项目有关的研究积累和已取得的成绩',
+    placeholder: '请输入与项目相关的前期研究、获奖、论文等成绩...',
+    inputRows: 3,
+    outputRows: 6
+  },
+  {
+    key: 'missing_conditions',
+    title: '13. 已具备的条件，尚缺少的条件及解决方法',
+    placeholder: '请输入已具备的条件、尚缺少的条件、以及解决方案...',
+    inputRows: 4,
+    outputRows: 8
+  }
+];
+
+const ApplicationEditor = () => {
+  const navigate = useNavigate();
+  const { id } = useParams();
+
+  // 表单数据状态
+  const [formData, setFormData] = useState({
+    project_intro: '',
+    host_research: '',
+    teacher_projects: '',
+    teacher_support: '',
+    research_purpose: '',
+    research_content: '',
+    research_status: '',
+    innovation: '',
+    tech_route: '',
+    schedule: '',
+    foundation: '',
+    related_achievements: '',
+    missing_conditions: ''
+  });
+
+  // 保存状态
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
+
+  // 从 localStorage 加载草稿
+  useEffect(() => {
+    const storageKey = `application_draft_${id || 'default'}`;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setFormData(parsed.data || parsed);
+        setLastSaved(parsed.timestamp ? new Date(parsed.timestamp) : null);
+        safeShowToast('info', '已加载上次保存的草稿');
+      } catch (e) {
+        console.error('Failed to load draft:', e);
+      }
+    }
+  }, [id]);
+
+  // 更新单个字段
+  const updateField = (key, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  // 保存草稿
+  const handleSave = () => {
+    setIsSaving(true);
+    const storageKey = `application_draft_${id || 'default'}`;
+    const saveData = {
+      data: formData,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(saveData));
+      setLastSaved(new Date());
+      safeShowToast('success', '草稿保存成功');
+    } catch (e) {
+      console.error('Save failed:', e);
+      safeShowToast('error', '保存失败，请重试');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 清空草稿
+  const handleClear = () => {
+    if (window.confirm('确定要清空所有内容吗？此操作不可撤销。')) {
+      setFormData({
+        project_intro: '',
+        host_research: '',
+        teacher_projects: '',
+        teacher_support: '',
+        research_purpose: '',
+        research_content: '',
+        research_status: '',
+        innovation: '',
+        tech_route: '',
+        schedule: '',
+        foundation: '',
+        related_achievements: '',
+        missing_conditions: ''
+      });
+      const storageKey = `application_draft_${id || 'default'}`;
+      localStorage.removeItem(storageKey);
+      setLastSaved(null);
+      safeShowToast('info', '已清空所有内容');
+    }
+  };
+
+  // 计算完成进度
+  const completedCount = Object.values(formData).filter(v => v && v.trim().length > 0).length;
+  const progress = Math.round((completedCount / 13) * 100);
+
+  // 生成导出文本
+  const generateExportText = () => {
+    const sections = [
+      { key: 'project_intro', title: '1. 项目简介' },
+      { key: 'host_research', title: '2. 第一主持人科研情况' },
+      { key: 'teacher_projects', title: '3. 指导教师承担科研课题情况' },
+      { key: 'teacher_support', title: '4. 指导教师对本项目的支持情况' },
+      { key: 'research_purpose', title: '5. 研究目的' },
+      { key: 'research_content', title: '6. 研究内容' },
+      { key: 'research_status', title: '7. 国内外研究现状和发展动态' },
+      { key: 'innovation', title: '8. 创新点与项目特色' },
+      { key: 'tech_route', title: '9. 技术路线、拟解决的问题及预期成果' },
+      { key: 'schedule', title: '10. 项目研究进度安排' },
+      { key: 'foundation', title: '11. 已有基础' },
+      { key: 'related_achievements', title: '12. 与本项目有关的研究积累和已取得的成绩' },
+      { key: 'missing_conditions', title: '13. 已具备的条件，尚缺少的条件及解决方法' }
+    ];
+
+    let text = '========================================\n';
+    text += '        大学生创新创业训练计划项目申报书\n';
+    text += '========================================\n\n';
+    text += `导出时间: ${new Date().toLocaleString()}\n`;
+    text += `完成进度: ${completedCount}/13 (${progress}%)\n\n`;
+
+    sections.forEach(section => {
+      text += `=== ${section.title} ===\n`;
+      text += formData[section.key] ? formData[section.key].trim() : '(未填写)';
+      text += '\n\n';
+    });
+
+    text += '========================================\n';
+    text += '              --- END ---\n';
+    text += '========================================\n';
+
+    return text;
+  };
+
+  // 复制到剪贴板
+  const handleCopyAll = async () => {
+    const text = generateExportText();
+    try {
+      await navigator.clipboard.writeText(text);
+      safeShowToast('success', '已复制到剪贴板！');
+    } catch (err) {
+      console.error('Copy failed:', err);
+      safeShowToast('error', '复制失败，请重试');
+    }
+  };
+
+  // 下载为 Word 文件
+  const handleDownload = async () => {
+    const sections = SECTIONS_CONFIG.map(s => ({
+      label: s.title,
+      content: formData[s.key] || ''
+    }));
+    try {
+      await exportToWord('大学生创新创业训练计划项目申报书', sections);
+      safeShowToast('success', 'Word 文件下载成功！');
+    } catch (err) {
+      console.error('Export failed:', err);
+      safeShowToast('error', '导出失败，请重试');
+    }
+  };
+
+  return (
+    <Container fluid className="p-4 page-transition" style={{ backgroundColor: '#F0F4F8', minHeight: '100vh' }}>
+      {/* Header */}
+      <div className="mb-4">
+        <CommonButton
+          variant="link"
+          onClick={() => navigate(-1)}
+          style={{ padding: 0, marginBottom: '16px', color: '#6c757d', textDecoration: 'none' }}
+        >
+          <FaArrowLeft style={{ marginRight: '8px' }} />
+          返回
+        </CommonButton>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', marginBottom: '4px' }}>
+              <FaFileAlt style={{ marginRight: '10px', color: '#1890ff' }} />
+              申报书 AI 编辑器
+            </h1>
+            <p style={{ fontSize: '13px', color: '#6c757d', margin: 0 }}>
+              使用 AI 辅助生成高质量的申报书内容
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <CommonButton variant="secondary" onClick={handleClear} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FaTrash size={12} /> 清空
+            </CommonButton>
+            <CommonButton variant="secondary" onClick={handleCopyAll} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FaCopy size={12} /> 复制全部
+            </CommonButton>
+            <CommonButton
+              variant="secondary"
+              onClick={handleDownload}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+                color: '#fff',
+                border: 'none'
+              }}
+            >
+              <FaDownload size={12} /> 导出文件
+            </CommonButton>
+            <CommonButton
+              variant="primary"
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{
+                background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <FaSave size={12} /> {isSaving ? '保存中...' : '保存草稿'}
+            </CommonButton>
+          </div>
+        </div>
+      </div>
+
+      <Row>
+        {/* Main Content - 13 Sections */}
+        <Col lg={9}>
+          {SECTIONS_CONFIG.map((section) => (
+            <AISection
+              key={section.key}
+              title={section.title}
+              promptKey={section.key}
+              placeholder={section.placeholder}
+              value={formData[section.key]}
+              onChange={(value) => updateField(section.key, value)}
+              inputRows={section.inputRows}
+              outputRows={section.outputRows}
+            />
+          ))}
+        </Col>
+
+        {/* Right Sidebar - Progress & Actions */}
+        <Col lg={3}>
+          <div style={{ position: 'sticky', top: '20px' }}>
+            {/* Progress Card */}
+            <Card className="mb-4" style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+              <Card.Body className="p-4">
+                <h6 style={{ fontWeight: '600', marginBottom: '16px', color: '#333' }}>
+                  📊 填写进度
+                </h6>
+                <ProgressBar
+                  now={progress}
+                  variant={progress === 100 ? 'success' : progress > 50 ? 'info' : 'warning'}
+                  style={{ height: '10px', borderRadius: '5px', marginBottom: '12px' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#666' }}>
+                  <span>{completedCount} / 13 已完成</span>
+                  <span style={{ fontWeight: '600', color: progress === 100 ? '#52c41a' : '#1890ff' }}>{progress}%</span>
+                </div>
+
+                {lastSaved && (
+                  <div style={{ marginTop: '16px', padding: '10px', backgroundColor: '#f6ffed', borderRadius: '8px', fontSize: '12px', color: '#52c41a' }}>
+                    <FaCheckCircle style={{ marginRight: '6px' }} />
+                    上次保存: {lastSaved.toLocaleTimeString()}
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+
+            {/* Section Navigation */}
+            <Card className="mb-4" style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+              <Card.Body className="p-4">
+                <h6 style={{ fontWeight: '600', marginBottom: '12px', color: '#333' }}>
+                  📑 快速导航
+                </h6>
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  {SECTIONS_CONFIG.map((section, index) => {
+                    const hasContent = formData[section.key] && formData[section.key].trim().length > 0;
+                    return (
+                      <a
+                        key={section.key}
+                        href={`#section-${section.key}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 10px',
+                          marginBottom: '4px',
+                          borderRadius: '8px',
+                          backgroundColor: hasContent ? '#f6ffed' : '#fafafa',
+                          color: hasContent ? '#52c41a' : '#666',
+                          textDecoration: 'none',
+                          fontSize: '12px',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {hasContent ? <FaCheckCircle size={10} style={{ marginRight: '8px' }} /> : <span style={{ width: '18px' }}>{index + 1}.</span>}
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {section.title.replace(/^\d+\.\s*/, '')}
+                        </span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </Card.Body>
+            </Card>
+
+            {/* Tips */}
+            <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+              <Card.Body className="p-4">
+                <h6 style={{ fontWeight: '600', marginBottom: '12px', color: '#333' }}>
+                  💡 使用提示
+                </h6>
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#666', lineHeight: '1.8' }}>
+                  <li>在「原始输入」框输入关键信息</li>
+                  <li>点击「AI 润色」生成专业内容</li>
+                  <li>可在「润色结果」框中手动修改</li>
+                  <li>定期点击「保存草稿」防止丢失</li>
+                  <li>草稿会自动保存到本地浏览器</li>
+                </ul>
+              </Card.Body>
+            </Card>
+          </div>
+        </Col>
+      </Row>
+
+      {/* Floating Action Buttons */}
+      <div style={{
+        position: 'fixed',
+        bottom: '30px',
+        right: '30px',
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        {/* Export Button */}
+        <CommonButton
+          variant="primary"
+          onClick={handleDownload}
+          title="导出文件"
+          style={{
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+            border: 'none',
+            boxShadow: '0 4px 16px rgba(24, 144, 255, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <FaFileExport size={18} />
+        </CommonButton>
+        {/* Copy Button */}
+        <CommonButton
+          variant="primary"
+          onClick={handleCopyAll}
+          title="复制全部"
+          style={{
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #722ed1 0%, #531dab 100%)',
+            border: 'none',
+            boxShadow: '0 4px 16px rgba(114, 46, 209, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <FaCopy size={18} />
+        </CommonButton>
+        {/* Save Button */}
+        <CommonButton
+          variant="primary"
+          onClick={handleSave}
+          disabled={isSaving}
+          title="保存草稿"
+          style={{
+            width: '60px',
+            height: '60px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)',
+            border: 'none',
+            boxShadow: '0 4px 16px rgba(82, 196, 26, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <FaSave size={20} />
+        </CommonButton>
+      </div>
+    </Container>
+  );
+};
+
+export default ApplicationEditor;
+
+// --- File: src/pages/AICreation.jsx ---
+// AI 双创智填中心 - Selection Hub
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  FaBrain,
+  FaFileAlt,
+  FaChartLine,
+  FaFlagCheckered,
+  FaChevronRight,
+  FaLightbulb
+} from 'react-icons/fa';
+
+const AICreation = () => {
+  const navigate = useNavigate();
+
+  const cards = [
+    {
+      id: 'application',
+      icon: <FaFileAlt size={40} />,
+      title: '申报书填写',
+      description: '智能辅助填写大创项目申报书，自动生成研究背景、技术路线等内容',
+      color: '#1890ff',
+      bgColor: '#e6f7ff',
+      path: '/application-editor'
+    },
+    {
+      id: 'midterm',
+      icon: <FaChartLine size={40} />,
+      title: '中期填报',
+      description: '智能生成中期检查报告，自动总结项目进展和阶段性成果',
+      color: '#722ed1',
+      bgColor: '#f9f0ff',
+      path: '/midterm-editor'
+    },
+    {
+      id: 'final',
+      icon: <FaFlagCheckered size={40} />,
+      title: '结题填报',
+      description: '智能辅助撰写结题报告，自动整理项目成果和创新点',
+      color: '#52c41a',
+      bgColor: '#f6ffed',
+      path: '/final-editor'
+    },
+    {
+      id: 'patent',
+      icon: <FaLightbulb size={40} />,
+      title: '专利填报',
+      description: '智能辅助生成专利交底书与申请文档，规范化专利撰写流程',
+      color: '#fa8c16',
+      bgColor: '#fff7e6',
+      path: '/patent-editor'
+    }
+  ];
+
+  return (
+    <div style={{ flex: 1, padding: '32px', backgroundColor: '#F0F4F8', minHeight: 'calc(100vh - 60px)' }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+        <div
+          style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+            boxShadow: '0 8px 24px rgba(102, 126, 234, 0.35)'
+          }}
+        >
+          <FaBrain size={36} style={{ color: '#fff' }} />
+        </div>
+        <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#1a1a2e', marginBottom: '12px' }}>
+          AI 双创智填中心
+        </h1>
+        <p style={{ fontSize: '16px', color: '#666', maxWidth: '500px', margin: '0 auto' }}>
+          选择文档类型，开始 AI 辅助写作
+        </p>
+      </div>
+
+      {/* Cards Grid - 4 Column Layout */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '20px',
+          maxWidth: '1200px',
+          margin: '0 auto'
+        }}
+      >
+        {cards.map((card) => (
+          <div
+            key={card.id}
+            onClick={() => navigate(card.path)}
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: '14px',
+              padding: '24px',
+              border: '1px solid #e8e8e8',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+              e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.12)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
+            }}
+          >
+            {/* Icon */}
+            <div
+              style={{
+                width: '72px',
+                height: '72px',
+                borderRadius: '50%',
+                backgroundColor: card.bgColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '16px',
+                color: card.color
+              }}
+            >
+              {card.icon}
+            </div>
+
+            {/* Title */}
+            <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1a1a2e', marginBottom: '10px' }}>
+              {card.title}
+            </h3>
+
+            {/* Description */}
+            <p style={{ fontSize: '13px', color: '#666', lineHeight: '1.6', marginBottom: '20px', flex: 1 }}>
+              {card.description}
+            </p>
+
+            {/* Button */}
+            <button
+              style={{
+                backgroundColor: card.color,
+                color: '#fff',
+                border: 'none',
+                padding: '10px 24px',
+                borderRadius: '24px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.9';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
+            >
+              开始填写 <FaChevronRight size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom Tip */}
+      <div
+        style={{
+          textAlign: 'center',
+          marginTop: '48px',
+          padding: '20px',
+          backgroundColor: '#fff',
+          borderRadius: '12px',
+          maxWidth: '600px',
+          margin: '48px auto 0',
+          border: '1px solid #e8e8e8'
+        }}
+      >
+        <p style={{ fontSize: '14px', color: '#888', margin: 0 }}>
+          💡 <strong>提示：</strong>中期填报和结题填报需要先选择已有项目，系统将自动关联项目信息
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default AICreation;
+
+// --- File: server/controllers/authController.js ---
+/**
+ * 认证控制器
+ * 处理用户注册、登录、获取用户信息等功能
+ */
+
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const path = require('path');
+const fs = require('fs');
+const { query } = require('../config/db');
+
+/**
+ * 用户注册
+ * POST /api/auth/register
+ */
+const register = async (req, res) => {
+  try {
+    const { student_id, password, name, email, phone, department, major, grade } = req.body;
+
+    // 验证必填字段
+    if (!student_id || !password || !name) {
+      return res.status(400).json({
+        success: false,
+        message: '学号、密码和姓名为必填项'
+      });
+    }
+
+    // 检查学号是否已存在
+    const existingUser = await query(
+      'SELECT id FROM users WHERE student_id = ?',
+      [student_id]
+    );
+
+    if (existingUser.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: '该学号已被注册'
+      });
+    }
+
+    // 加密密码
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // 插入新用户
+    const result = await query(
+      `INSERT INTO users (student_id, password, name, email, phone, department, major, grade, role)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'student')`,
+      [student_id, hashedPassword, name, email || null, phone || null, department || null, major || null, grade || null]
+    );
+
+    // 生成 JWT
+    const token = jwt.sign(
+      { id: result.insertId, student_id, role: 'student' },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: '注册成功',
+      data: {
+        user: {
+          id: result.insertId,
+          student_id,
+          name,
+          role: 'student'
+        },
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({
+      success: false,
+      message: '注册失败，请稍后重试'
+    });
+  }
+};
+
+/**
+ * 用户登录
+ * POST /api/auth/login
+ */
+const login = async (req, res) => {
+  try {
+    const { student_id, password } = req.body;
+
+    // 验证必填字段
+    if (!student_id || !password) {
+      return res.status(400).json({
+        success: false,
+        message: '请输入学号/用户名和密码'
+      });
+    }
+
+    // 查找用户 - 同时支持学号和自定义用户名登录
+    const users = await query(
+      'SELECT * FROM users WHERE student_id = ? OR username = ?',
+      [student_id, student_id]
+    );
+
+    if (users.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: '学号/用户名或密码错误'
+      });
+    }
+
+    const user = users[0];
+
+    // 检查账户是否激活
+    if (!user.is_active) {
+      return res.status(403).json({
+        success: false,
+        message: '账户已被禁用，请联系管理员'
+      });
+    }
+
+    // 验证密码
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: '学号/用户名或密码错误'
+      });
+    }
+
+    // 更新最后登录时间
+    await query(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
+      [user.id]
+    );
+
+    // 生成 JWT
+    const token = jwt.sign(
+      { id: user.id, student_id: user.student_id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    // 返回用户信息（不包含密码）
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json({
+      success: true,
+      message: '登录成功',
+      data: {
+        user: userWithoutPassword,
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: '登录失败，请稍后重试'
+    });
+  }
+};
+
+/**
+ * 获取当前用户信息
+ * GET /api/auth/profile
+ */
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const users = await query(
+      'SELECT id, student_id, name, email, phone, role, avatar, department, major, grade, is_active, last_login, created_at FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '用户不存在'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: users[0]
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取用户信息失败'
+    });
+  }
+};
+
+/**
+ * 更新用户信息
+ * PUT /api/auth/profile
+ */
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, email, phone, department, major, grade } = req.body;
+
+    await query(
+      `UPDATE users SET name = COALESCE(?, name), email = ?, phone = ?, department = ?, major = ?, grade = ? WHERE id = ?`,
+      [name, email || null, phone || null, department || null, major || null, grade || null, userId]
+    );
+
+    // 获取更新后的用户信息
+    const users = await query(
+      'SELECT id, student_id, name, email, phone, role, avatar, department, major, grade, is_active, last_login, created_at FROM users WHERE id = ?',
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      message: '更新成功',
+      data: users[0]
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: '更新用户信息失败'
+    });
+  }
+};
+
+/**
+ * 修改密码
+ * PUT /api/auth/password
+ */
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // 兼容 camelCase 和 snake_case
+    const oldPassword = req.body.oldPassword || req.body.old_password;
+    const newPassword = req.body.newPassword || req.body.new_password;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: '请输入旧密码和新密码'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: '新密码长度至少为6位'
+      });
+    }
+
+    // 获取当前密码
+    const users = await query('SELECT password FROM users WHERE id = ?', [userId]);
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '用户不存在'
+      });
+    }
+
+    // 验证旧密码
+    const isMatch = await bcrypt.compare(oldPassword, users[0].password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: '旧密码错误'
+      });
+    }
+
+    // 加密新密码
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // 更新密码
+    await query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+
+    res.json({
+      success: true,
+      message: '密码修改成功'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      message: '修改密码失败'
+    });
+  }
+};
+
+/**
+ * 上传头像
+ * POST /api/auth/avatar
+ */
+const uploadAvatar = async (req, res) => {
+  try {
+    // 运行时确保头像目录存在（防止 Docker 容器重建后目录丢失）
+    const avatarDir = path.join(__dirname, '..', 'uploads', 'avatars');
+    if (!fs.existsSync(avatarDir)) {
+      fs.mkdirSync(avatarDir, { recursive: true });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: '请选择头像文件' });
+    }
+
+    const userId = req.user.id;
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+    await query('UPDATE users SET avatar = ? WHERE id = ?', [avatarUrl, userId]);
+
+    // 返回更新后的用户信息
+    const users = await query(
+      'SELECT id, student_id, name, email, phone, role, avatar, department, major, grade, is_active, last_login, created_at FROM users WHERE id = ?',
+      [userId]
+    );
+
+    res.json({ success: true, message: '头像上传成功', data: users[0] });
+  } catch (error) {
+    console.error('Upload avatar error:', error);
+    res.status(500).json({ success: false, message: '头像上传失败' });
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  getProfile,
+  updateProfile,
+  changePassword,
+  uploadAvatar
+};
+
+// --- File: src/pages/ProjectDashboard.jsx ---
+// Project Dashboard - Control Room with Timeline, Budget, and Team Members
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Container, Row, Col, Card, Badge, Modal, Form, Spinner } from 'react-bootstrap';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  FaArrowLeft,
+  FaCheckCircle,
+  FaClock,
+  FaFileAlt,
+  FaMoneyBillWave,
+  FaDownload,
+  FaUsers,
+  FaUserCircle,
+  FaCrown,
+  FaGraduationCap,
+  FaIdCard,
+  FaEnvelope,
+  FaPhone,
+  FaBuilding,
+  FaTimes,
+  FaPlus,
+  FaFolderOpen,
+  FaUpload,
+  FaFilePdf,
+  FaFileWord,
+  FaImage,
+  FaHistory,
+  FaHourglassHalf,
+  FaPencilAlt
+} from 'react-icons/fa';
+import CommonButton from '../components/CommonButton';
+import ExpenseModal from '../components/ExpenseModal';
+import { showToast } from '../components/Toast';
+import api from '../services/api';
+
+// FormField must be defined OUTSIDE the main component to avoid remounting on every render
+const FormField = ({ icon: Icon, iconColor, label, value, onChange, placeholder, disabled = false }) => (
+  <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '16px' }}>
+    <Icon style={{ color: iconColor, marginRight: '12px', fontSize: '18px', marginTop: '4px' }} />
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '4px' }}>{label}</div>
+      {disabled ? (
+        <div style={{ fontSize: '14px', color: '#333', fontWeight: '500' }}>{value || '-'}</div>
+      ) : (
+        <Form.Control type="text" value={value || ''} onChange={onChange} placeholder={placeholder}
+          style={{ fontSize: '14px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #d9d9d9' }} />
+      )}
+    </div>
+  </div>
+);
+
+const ProjectDashboard = () => {
+  const navigate = useNavigate();
+  const { id } = useParams();
+
+  // 实时时间
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 项目数据（从后端加载）
+  const [project, setProject] = useState({ id: parseInt(id), name: '加载中...', status: '...' });
+  const [projectLoading, setProjectLoading] = useState(true);
+
+  // 经费状态
+  const [budgetTotal, setBudgetTotal] = useState(0);
+  const [budgetSpent, setBudgetSpent] = useState(0);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [budgetInputValue, setBudgetInputValue] = useState('');
+  const [budgetHovered, setBudgetHovered] = useState(false);
+  const budgetInputRef = useRef(null);
+
+  // 支出管理弹窗
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [spentCardHovered, setSpentCardHovered] = useState(false);
+
+  // 团队成员（从后端加载）
+  const [teamMembers, setTeamMembers] = useState([]);
+
+  // 成员详情弹窗
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+
+  // 成员编辑相关
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    role: '',
+    className: '',
+    studentId: '',
+    email: '',
+    phone: '',
+    lab: ''
+  });
+
+  // 添加成员弹窗
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newMemberId, setNewMemberId] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('member');
+  
+  // 搜索用户相关
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const searchTimeoutRef = useRef(null);
+
+  // 添加分类弹窗
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  // 资料归档状态
+  const [activeArchiveTab, setActiveArchiveTab] = useState('全部');
+  const [isArchiveEditMode, setIsArchiveEditMode] = useState(false);
+  const [archiveFiles, setArchiveFiles] = useState([]);
+  const [filesLoading, setFilesLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // 重命名状态
+  const [renamingFileId, setRenamingFileId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef(null);
+
+  // 审计日志
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+
+  // 动态分类标签
+  const defaultCategories = ['全部', '专利文件', '申报文档', '其他资料'];
+  const [archiveCategories, setArchiveCategories] = useState(() => {
+    const saved = localStorage.getItem(`project_${id}_categories`);
+    return saved ? JSON.parse(saved) : defaultCategories;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`project_${id}_categories`, JSON.stringify(archiveCategories));
+  }, [archiveCategories, id]);
+
+  // ─── Fetch project detail from backend ───
+  const fetchProject = useCallback(async () => {
+    try {
+      setProjectLoading(true);
+      const res = await api.get(`/projects/${id}`);
+      if (res.data.success) {
+        const p = res.data.data;
+        const statusMap = {
+          'in_progress': '进行中',
+          'pending': '待审核',
+          'approved': '已立项',
+          'completed': '已结题',
+          'rejected': '已驳回'
+        };
+        setProject({ 
+          id: p.id, 
+          name: p.title, 
+          status: statusMap[p.status] || p.status,
+          currentUserRole: p.currentUserRole
+        });
+        setBudgetTotal(p.budget || 0);
+        // Note: budgetSpent is set by fetchExpenseTotal (SUM from expenses table)
+        setTeamMembers(Array.isArray(p.team_members) ? p.team_members : []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch project:', err);
+    } finally {
+      setProjectLoading(false);
+    }
+  }, [id]);
+
+  // ─── Fetch files from backend ───
+  const fetchFiles = useCallback(async () => {
+    try {
+      setFilesLoading(true);
+      const res = await api.get(`/files/${id}`);
+      if (res.data.success) {
+        const mapped = res.data.data.map(f => ({
+          id: f.id,
+          name: f.filename,
+          type: getFileTypeFromName(f.filename),
+          category: f.category || mapFileType(f.file_type),
+          date: new Date(f.uploaded_at).toISOString().split('T')[0],
+          size: formatFileSize(f.file_size),
+          backendId: f.id,
+          uploader: f.uploader_name
+        }));
+        setArchiveFiles(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to fetch files:', err);
+      setArchiveFiles([]);
+    } finally {
+      setFilesLoading(false);
+    }
+  }, [id]);
+
+  // ─── Fetch audit logs from backend ───
+  const fetchLogs = useCallback(async () => {
+    try {
+      setLogsLoading(true);
+      const res = await api.get(`/logs/${id}?limit=5`);
+      if (res.data.success) {
+        setAuditLogs(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch logs:', err);
+      setAuditLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [id]);
+
+  // ─── Fetch expense total from backend ───
+  const fetchExpenseTotal = useCallback(async () => {
+    try {
+      const res = await api.get(`/expenses/${id}`);
+      if (res.data.success) {
+        setBudgetSpent(res.data.data.total_used);
+      }
+    } catch (err) {
+      console.error('Failed to fetch expense total:', err);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchProject();
+    fetchFiles();
+    fetchLogs();
+    fetchExpenseTotal();
+  }, [fetchProject, fetchFiles, fetchLogs, fetchExpenseTotal]);
+
+  // 时间线数据
+  const timeline = [
+    { date: '2025-10-15', title: '项目立项申报', description: '提交项目立项申报书' },
+    { date: '2025-11-20', title: '立项审批完成', description: '通过学校评审，正式立项' },
+    { date: '2026-04-15', title: '中期检查', description: '提交中期检查报告' },
+    { date: '2026-10-20', title: '结题填报', description: '完成项目结题材料填报' },
+    { date: '2026-12-10', title: '项目结题', description: '项目正式结题' }
+  ];
+
+  // ─── Budget handlers (0 ~ 20000 validation + backend persist) ───
+  const handleBudgetClick = () => {
+    setBudgetInputValue(String(budgetTotal));
+    setIsEditingBudget(true);
+  };
+
+  useEffect(() => {
+    if (isEditingBudget && budgetInputRef.current) {
+      budgetInputRef.current.focus();
+      budgetInputRef.current.select();
+    }
+  }, [isEditingBudget]);
+
+  const commitBudgetEdit = async () => {
+    let val = parseFloat(budgetInputValue);
+    if (isNaN(val) || val < 0) val = 0;
+    if (val > 20000) val = 20000;
+
+    setBudgetTotal(val);
+    setIsEditingBudget(false);
+
+    try {
+      await api.patch(`/projects/${id}/funding`, { budget: val });
+      showToast('success', '经费已更新');
+      fetchLogs();
+    } catch (err) {
+      console.error('Update funding failed:', err);
+      showToast('error', '经费更新失败');
+    }
+  };
+
+  const handleBudgetKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitBudgetEdit(); }
+    if (e.key === 'Escape') { setIsEditingBudget(false); }
+  };
+
+  // ─── Helper functions ───
+  const getFileTypeFromName = (fileName) => {
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    if (['pdf'].includes(ext)) return 'pdf';
+    if (['doc', 'docx'].includes(ext)) return 'word';
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return 'image';
+    return 'other';
+  };
+
+  const mapFileType = (fileType) => {
+    switch (fileType) {
+      case 'attachment': return '专利文件';
+      case 'application': return '申报文档';
+      default: return '其他资料';
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const filteredArchiveFiles = activeArchiveTab === '全部'
+    ? archiveFiles
+    : archiveFiles.filter(file => file.category === activeArchiveTab);
+
+  const getFileIcon = (type) => {
+    switch (type) {
+      case 'pdf': return <FaFilePdf style={{ color: '#ff4d4f' }} />;
+      case 'word': return <FaFileWord style={{ color: '#1890ff' }} />;
+      case 'image': return <FaImage style={{ color: '#52c41a' }} />;
+      default: return <FaFileAlt style={{ color: '#8c8c8c' }} />;
+    }
+  };
+
+  const getCategoryColor = (category) => {
+    switch (category) {
+      case '专利文件': return { bg: '#fff1f0', color: '#cf1322' };
+      case '申报文档': return { bg: '#e6f7ff', color: '#0050b3' };
+      case '其他资料': return { bg: '#f6ffed', color: '#389e0d' };
+      default: return { bg: '#f5f5f5', color: '#8c8c8c' };
+    }
+  };
+
+  // ─── File operations ───
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const category = activeArchiveTab !== '全部' ? activeArchiveTab : '其他资料';
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', category);
+      const res = await api.post(`/files/${id}/upload`, formData);
+      if (res.data.success) {
+        showToast('success', `文件 "${file.name}" 上传成功`);
+        await fetchFiles();
+        fetchLogs();
+      }
+    } catch (err) {
+      console.error('Upload failed:', err);
+      showToast('error', '文件上传失败：' + (err.response?.data?.message || '未知错误'));
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteArchiveFile = async (fileId, fileName) => {
+    if (!window.confirm(`确定要删除文件 "${fileName}" 吗？`)) return;
+    try {
+      const res = await api.delete(`/files/${fileId}`);
+      if (res.data.success) {
+        showToast('success', `文件 "${fileName}" 已删除`);
+        await fetchFiles();
+        fetchLogs();
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      showToast('error', '删除失败：' + (err.response?.data?.message || '未知错误'));
+    }
+  };
+
+  const handleDownloadFile = async (file) => {
+    try {
+      const response = await api.get(`/files/download/${file.backendId}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showToast('success', `正在下载 "${file.name}"`);
+      fetchLogs();
+    } catch (err) {
+      console.error('Download failed:', err);
+      showToast('error', '下载失败');
+    }
+  };
+
+  // ─── Rename file ───
+  const handleStartRename = (file) => {
+    // 去掉后缀名，只编辑文件名部分
+    const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
+    const nameWithoutExt = ext ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
+    setRenamingFileId(file.id);
+    setRenameValue(nameWithoutExt);
+    // 下一帧聚焦输入框
+    setTimeout(() => renameInputRef.current?.focus(), 50);
+  };
+
+  const handleConfirmRename = async (file) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      showToast('warning', '文件名不能为空');
+      return;
+    }
+    // 原始后缀
+    const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
+    const newFullName = `${trimmed}${ext}`;
+    if (newFullName === file.name) {
+      // 没有变化，直接退出编辑
+      setRenamingFileId(null);
+      return;
+    }
+    try {
+      const res = await api.put(`/files/${file.backendId || file.id}/rename`, { filename: trimmed });
+      if (res.data.success) {
+        showToast('success', `文件已重命名为 "${res.data.data.filename}"`);
+        await fetchFiles();
+        fetchLogs();
+      }
+    } catch (err) {
+      console.error('Rename failed:', err);
+      showToast('error', '重命名失败：' + (err.response?.data?.message || '未知错误'));
+    } finally {
+      setRenamingFileId(null);
+    }
+  };
+
+  const handleCancelRename = () => {
+    setRenamingFileId(null);
+    setRenameValue('');
+  };
+
+  const handleAddCategory = () => {
+    setNewCategoryName('');
+    setShowCategoryModal(true);
+  };
+
+  const handleConfirmAddCategory = async () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) return;
+    if (archiveCategories.includes(trimmed)) { showToast('warning', '该分类已存在'); setShowCategoryModal(false); return; }
+    setArchiveCategories([...archiveCategories, trimmed]);
+    setActiveArchiveTab(trimmed);
+    showToast('success', `分类 "${trimmed}" 已添加`);
+    setShowCategoryModal(false);
+    try {
+      await api.post('/logs', { action: 'add_category', entity_type: 'project', entity_id: parseInt(id), details: { name: trimmed } });
+      fetchLogs();
+    } catch (err) { console.error('Log add_category failed:', err); }
+  };
+
+  // ─── Audit log helpers ───
+  const formatLogAction = (log) => {
+    const actionMap = {
+      'upload_file': '上传了文件',
+      'download_file': '下载了',
+      'delete_file': '删除了文件',
+      'create_project': '创建了项目',
+      'update_project': '修改了',
+      'update_funding': '更新了经费',
+      'update_team': '更新了团队信息',
+      'create_reimbursement': '申请了报销',
+      'add_member': '添加了成员',
+      'remove_member': '移除了成员',
+      'add_expense': '添加了支出',
+      'delete_expense': '删除了支出',
+      'add_category': '添加了分类',
+      'delete_category': '删除了分类'
+    };
+    const action = actionMap[log.action] || log.action;
+    let target = '';
+    try {
+      const details = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+      if (details?.filename) {
+        target = details.filename;
+      } else if (details?.name) {
+        target = details.name;
+      } else if (details?.added_members) {
+        target = details.added_members.join('、');
+      } else if (details?.removed_members) {
+        target = details.removed_members.join('、');
+      } else if (details?.new_budget !== undefined) {
+        target = `¥${details.old_budget?.toLocaleString() ?? 0} → ¥${details.new_budget.toLocaleString()}`;
+      }
+    } catch { target = ''; }
+    return { action, target };
+  };
+
+  const formatLogTime = (timestamp) => {
+    if (!timestamp) return '';
+    const d = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return '刚刚';
+    if (diffMin < 60) return `${diffMin}分钟前`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}小时前`;
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffDay === 1) return '昨天';
+    if (diffDay < 7) return `${diffDay}天前`;
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  // ─── Team member handlers (with REAL database integration) ───
+  const fetchProjectMembers = useCallback(async () => {
+    try {
+      const res = await api.get(`/projects/${id}`);
+      if (res.data.success) {
+        setTeamMembers(res.data.data.team_members || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch project members:', err);
+    }
+  }, [id]);
+
+  const handleMemberClick = (member) => {
+    setSelectedMember(member);
+    setIsEditing(false);
+    setShowMemberModal(true);
+  };
+
+  const handleStartEdit = () => {
+    if (selectedMember) {
+      setEditFormData({
+        name: selectedMember.name || '',
+        role: selectedMember.role || '',
+        className: selectedMember.className || '',
+        studentId: selectedMember.studentId || '',
+        email: selectedMember.email || '',
+        phone: selectedMember.phone || '',
+        lab: selectedMember.lab || ''
+      });
+      setIsEditing(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    // 暂不实现后端更新，直接关闭
+    setIsEditing(false);
+    showToast('info', '成员信息编辑功能开发中');
+  };
+
+  const handleRoleChange = (role) => {
+    setEditFormData({ ...editFormData, role });
+  };
+
+  const handleDeleteMember = async () => {
+    if (selectedMember.role === 'captain') { showToast('warning', '不能移除队长，请先转让队长身份'); return; }
+    if (window.confirm(`确定要移除成员 ${selectedMember.name} 吗？`)) {
+      try {
+        const res = await api.delete(`/projects/${id}/members/${selectedMember.id}`);
+        if (res.data.success) {
+          showToast('success', '成员已移除');
+          setShowMemberModal(false);
+          fetchProjectMembers();
+          fetchLogs();
+        }
+      } catch (err) {
+        showToast('error', err.response?.data?.message || '移除成员失败');
+      }
+    }
+  };
+
+  const handleSearchUser = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const res = await api.get(`/users/search?q=${encodeURIComponent(query)}`);
+      if (res.data.success) {
+        setSearchResults(res.data.data);
+        setShowDropdown(true);
+      }
+    } catch (err) {
+      console.error('Search user error:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    setSelectedUser(null);
+    setNewMemberId('');
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      handleSearchUser(value);
+    }, 300);
+  };
+
+  const handleSelectUser = (user) => {
+    setSelectedUser(user);
+    setSearchQuery(`${user.name} (${user.student_id})`);
+    setNewMemberId(user.id.toString());
+    setShowDropdown(false);
+  };
+
+  const handleOpenAddModal = () => {
+    setNewMemberId('');
+    setNewMemberRole('member');
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedUser(null);
+    setShowDropdown(false);
+    setShowAddModal(true);
+  };
+
+  const handleAddMember = async () => {
+    if (!newMemberId) { showToast('warning', '请先搜索并选择一个真实用户'); return; }
+    
+    try {
+      const res = await api.post(`/projects/${id}/members`, { 
+        userId: parseInt(newMemberId), 
+        role: newMemberRole 
+      });
+      if (res.data.success) {
+        showToast('success', '成员添加成功');
+        setShowAddModal(false);
+        fetchProjectMembers();
+        fetchLogs();
+      }
+    } catch (err) {
+      showToast('error', err.response?.data?.message || '添加成员失败');
+    }
+  };
+
+  const budgetBalance = budgetTotal - budgetSpent;
+
+  return (
+    <Container fluid className="p-4 page-transition" style={{ backgroundColor: '#F0F4F8', minHeight: '100vh', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Header */}
+      <div className="mb-4 animate-fade-in-up">
+        <CommonButton variant="link" onClick={() => navigate('/my-projects')}
+          style={{ padding: 0, marginBottom: '16px', color: '#6c757d', textDecoration: 'none' }}>
+          <FaArrowLeft style={{ marginRight: '8px' }} />返回项目列表
+        </CommonButton>
+        <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#333', marginBottom: '8px' }}>
+          {projectLoading ? <Spinner animation="border" size="sm" /> : project.name}
+        </h1>
+        <Badge bg="primary" style={{ fontSize: '12px', padding: '6px 12px' }}>{project.status}</Badge>
+      </div>
+
+      <Row className="g-4 dashboard-row">
+        {/* Left Panel */}
+        <Col lg={8}>
+          {/* Timeline */}
+          <Card className="animate-fade-in-up" style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+            <Card.Body style={{ padding: 'clamp(16px, 2vw, 24px)' }}>
+              <h5 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '24px', color: '#333' }}>
+                <FaClock style={{ marginRight: '10px', color: '#1890ff' }} />项目时间线
+              </h5>
+              <div style={{ position: 'relative', paddingLeft: '40px' }}>
+                <div style={{ position: 'absolute', left: '11px', top: '0', bottom: '0', width: '2px', backgroundColor: '#e8e8e8' }} />
+                {(() => {
+                  const todayStr = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, '0')}-${String(currentTime.getDate()).padStart(2, '0')}`;
+                  const todayTime = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+                  const items = timeline.map(t => ({ ...t, isNowMarker: false }));
+                  let insertIdx = items.length;
+                  for (let i = 0; i < items.length; i++) {
+                    if (todayStr < items[i].date) { insertIdx = i; break; }
+                  }
+                  if (insertIdx < items.length && todayStr === items[insertIdx].date) insertIdx += 1;
+                  items.splice(insertIdx, 0, { isNowMarker: true, date: todayStr, time: todayTime });
+
+                  return items.map((item, index) => {
+                    if (item.isNowMarker) {
+                      return (
+                        <div key="now-marker" style={{ position: 'relative', paddingBottom: index === items.length - 1 ? 0 : '32px' }}>
+                          <div style={{ position: 'absolute', left: '-40px', top: '4px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#ff4d4f', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', zIndex: 2, boxShadow: '0 0 0 4px rgba(255, 77, 79, 0.2)', animation: 'pulse-now 2s ease-in-out infinite' }}>
+                            <FaHourglassHalf size={10} />
+                          </div>
+                          <div style={{ padding: '12px 20px', borderRadius: '12px', background: 'linear-gradient(135deg, #fff1f0 0%, #fff7e6 100%)', border: '1px dashed #ff4d4f', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ fontSize: '12px', color: '#ff4d4f', fontWeight: '600', marginBottom: '2px' }}>📍 当前时间</div>
+                              <div style={{ fontSize: '15px', fontWeight: '600', color: '#333' }}>
+                                {todayStr}<span style={{ fontSize: '13px', color: '#8c8c8c', marginLeft: '8px' }}>{todayTime}</span>
+                              </div>
+                            </div>
+                            <Badge bg="danger" style={{ fontSize: '10px', padding: '4px 10px', animation: 'pulse-now 2s ease-in-out infinite' }}>实时</Badge>
+                          </div>
+                        </div>
+                      );
+                    }
+                    const isPast = item.date < todayStr;
+                    const isToday = item.date === todayStr;
+                    const dotColor = isPast ? '#52c41a' : isToday ? '#1890ff' : '#d9d9d9';
+                    const bgColor = isPast ? '#f6ffed' : isToday ? '#e6f7ff' : '#fafafa';
+                    const borderColor = isPast ? '#b7eb8f' : isToday ? '#91d5ff' : '#f0f0f0';
+                    return (
+                      <div key={index} style={{ position: 'relative', paddingBottom: index === items.length - 1 ? 0 : '32px' }}>
+                        <div style={{ position: 'absolute', left: '-40px', top: '4px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: dotColor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', zIndex: 1 }}>
+                          {isPast ? <FaCheckCircle size={12} /> : <FaClock size={10} />}
+                        </div>
+                        <div style={{ backgroundColor: bgColor, padding: '16px 20px', borderRadius: '12px', border: `1px solid ${borderColor}` }}>
+                          <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '4px' }}>{item.date}</div>
+                          <div style={{ fontSize: '16px', fontWeight: '600', color: '#333', marginBottom: '4px' }}>
+                            {item.title}
+                            {isPast && <Badge bg="success" style={{ marginLeft: '8px', fontSize: '10px' }}>已完成</Badge>}
+                            {isToday && <Badge bg="primary" style={{ marginLeft: '8px', fontSize: '10px' }}>今天</Badge>}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#6c757d' }}>{item.description}</div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* Project Archives */}
+          <Card className="mt-4 animate-fade-in-up" style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+            <Card.Body style={{ padding: 'clamp(16px, 2vw, 24px)' }}>
+              <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <h5 style={{ fontSize: '18px', fontWeight: '600', color: '#333', margin: 0 }}>
+                  <FaFolderOpen style={{ marginRight: '10px', color: '#faad14' }} />资料归档
+                </h5>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <CommonButton variant="outline-primary" onClick={() => setIsArchiveEditMode(!isArchiveEditMode)}
+                    style={{ fontSize: '13px', padding: '6px 16px', borderRadius: '20px' }}>
+                    {isArchiveEditMode ? '✓ 完成' : '✎ 编辑'}
+                  </CommonButton>
+                  <CommonButton variant="primary" onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                    style={{ fontSize: '13px', padding: '6px 16px', borderRadius: '20px' }}>
+                    {uploading ? <Spinner animation="border" size="sm" /> : <><FaUpload style={{ marginRight: '6px' }} />上传文件</>}
+                  </CommonButton>
+                </div>
+              </div>
+
+              {/* Category Tabs */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                {archiveCategories.map(cat => (
+                  <span key={cat} onClick={() => setActiveArchiveTab(cat)}
+                    style={{
+                      position: 'relative',
+                      padding: '6px 16px', borderRadius: '20px', fontSize: '13px', cursor: 'pointer',
+                      backgroundColor: activeArchiveTab === cat ? '#1890ff' : '#f0f0f0',
+                      color: activeArchiveTab === cat ? '#fff' : '#666', fontWeight: activeArchiveTab === cat ? '600' : '400',
+                      transition: 'all 0.2s',
+                      paddingRight: isArchiveEditMode && cat !== '全部' ? '28px' : '16px'
+                    }}>
+                    {cat}
+                    {isArchiveEditMode && cat !== '全部' && (
+                      <span
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!window.confirm(`确定要删除分类「${cat}」吗？该分类下的文件不会被删除，仍可在"全部"中查看。`)) return;
+                          // Remove category from list
+                          setArchiveCategories(prev => prev.filter(c => c !== cat));
+                          // If currently viewing this category, switch to "全部"
+                          if (activeArchiveTab === cat) setActiveArchiveTab('全部');
+                          showToast('success', `分类「${cat}」已删除，文件已保留`);
+                          try {
+                            await api.post('/logs', { action: 'delete_category', entity_type: 'project', entity_id: parseInt(id), details: { name: cat } });
+                            fetchLogs();
+                          } catch (err) { console.error('Log delete_category failed:', err); }
+                        }}
+                        style={{
+                          position: 'absolute', top: '-6px', right: '-6px',
+                          width: '18px', height: '18px', borderRadius: '50%',
+                          backgroundColor: '#ff4d4f', color: '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '11px', lineHeight: '1', fontWeight: 'bold',
+                          cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
+                        }}
+                        title={`删除分类「${cat}」`}
+                      >
+                        ×
+                      </span>
+                    )}
+                  </span>
+                ))}
+                <span onClick={handleAddCategory}
+                  style={{ padding: '6px 16px', borderRadius: '20px', fontSize: '13px', cursor: 'pointer', backgroundColor: '#f0f0f0', color: '#1890ff', border: '1px dashed #1890ff' }}>
+                  <FaPlus style={{ marginRight: '4px' }} />添加
+                </span>
+              </div>
+
+              {/* File List */}
+              {filesLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#8c8c8c' }}>
+                  <Spinner animation="border" size="sm" style={{ marginRight: '8px' }} />加载文件...
+                </div>
+              ) : filteredArchiveFiles.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#bfbfbf' }}>
+                  <FaFolderOpen size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                  <div>暂无文件</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {filteredArchiveFiles.map(file => {
+                    const catColor = getCategoryColor(file.category);
+                    const isRenaming = renamingFileId === file.id;
+                    const fileExt = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
+                    return (
+                      <div key={file.id} style={{
+                        display: 'flex', alignItems: 'center', padding: '12px 16px', borderRadius: '10px',
+                        backgroundColor: isRenaming ? '#f0f7ff' : '#fafafa', border: isRenaming ? '1px solid #91d5ff' : '1px solid #f0f0f0', gap: '12px', transition: 'all 0.2s'
+                      }}
+                        onMouseEnter={(e) => { if (!isRenaming) { e.currentTarget.style.backgroundColor = '#f0f7ff'; e.currentTarget.style.borderColor = '#d6e4ff'; } }}
+                        onMouseLeave={(e) => { if (!isRenaming) { e.currentTarget.style.backgroundColor = '#fafafa'; e.currentTarget.style.borderColor = '#f0f0f0'; } }}>
+                        <div style={{ fontSize: '20px' }}>{getFileIcon(file.type)}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {isRenaming ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Form.Control
+                                ref={renameInputRef}
+                                type="text"
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') { e.preventDefault(); handleConfirmRename(file); }
+                                  if (e.key === 'Escape') { handleCancelRename(); }
+                                }}
+                                onBlur={() => handleConfirmRename(file)}
+                                style={{ fontSize: '13px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #91d5ff', flex: 1, minWidth: 0 }}
+                              />
+                              <span style={{ fontSize: '12px', color: '#8c8c8c', flexShrink: 0 }}>{fileExt}</span>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+                          )}
+                          <div style={{ fontSize: '12px', color: '#8c8c8c' }}>{file.date} · {file.size}</div>
+                        </div>
+                        <Badge bg="none" style={{ ...catColor, fontSize: '11px', padding: '3px 10px', borderRadius: '10px', backgroundColor: catColor.bg }}>{file.category}</Badge>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <CommonButton variant="link" onClick={() => handleDownloadFile(file)} style={{ padding: '4px 8px', color: '#1890ff' }} title="下载">
+                            <FaDownload size={14} />
+                          </CommonButton>
+                          <CommonButton variant="link" onClick={() => handleStartRename(file)} style={{ padding: '4px 8px', color: '#faad14' }} title="重命名">
+                            <FaPencilAlt size={13} />
+                          </CommonButton>
+                          {isArchiveEditMode && (
+                            <CommonButton variant="link" onClick={() => handleDeleteArchiveFile(file.backendId || file.id, file.name)} style={{ padding: '4px 8px', color: '#ff4d4f' }} title="删除">
+                              <FaTimes size={14} />
+                            </CommonButton>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+
+        {/* Right Panel */}
+        <Col lg={4}>
+          {/* Budget Card */}
+          <Card className="animate-fade-in-up" style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+            <Card.Body style={{ padding: 'clamp(16px, 2vw, 24px)' }}>
+              <h5 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px', color: '#333' }}>
+                <FaMoneyBillWave style={{ marginRight: '10px', color: '#52c41a' }} />经费概况
+              </h5>
+
+              {/* Total Budget - Editable */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '13px', color: '#8c8c8c', marginBottom: '4px' }}>总经费（0 ~ 20,000 元）</div>
+                {isEditingBudget ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Form.Control ref={budgetInputRef} type="number" min="0" max="20000" step="100"
+                      value={budgetInputValue} onChange={(e) => setBudgetInputValue(e.target.value)}
+                      onBlur={commitBudgetEdit} onKeyDown={handleBudgetKeyDown}
+                      style={{ fontSize: '24px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '8px', width: '160px' }} />
+                    <span style={{ fontSize: '14px', color: '#8c8c8c' }}>元</span>
+                  </div>
+                ) : (
+                  <div onClick={handleBudgetClick} onMouseEnter={() => setBudgetHovered(true)} onMouseLeave={() => setBudgetHovered(false)}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderRadius: '8px', backgroundColor: budgetHovered ? '#f0f7ff' : 'transparent', transition: 'all 0.2s' }}>
+                    <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#333' }}>¥{budgetTotal.toLocaleString()}</span>
+                    <FaPencilAlt size={12} style={{ color: budgetHovered ? '#1890ff' : '#d9d9d9', transition: 'color 0.2s' }} />
+                  </div>
+                )}
+              </div>
+
+              {/* Progress Bar */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#8c8c8c', marginBottom: '6px' }}>
+                  <span>已使用</span>
+                  <span>{budgetTotal > 0 ? Math.round((budgetSpent / budgetTotal) * 100) : 0}%</span>
+                </div>
+                <div style={{ height: '8px', backgroundColor: '#f0f0f0', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${budgetTotal > 0 ? Math.min((budgetSpent / budgetTotal) * 100, 100) : 0}%`, backgroundColor: budgetSpent / budgetTotal > 0.8 ? '#ff4d4f' : '#52c41a', borderRadius: '4px', transition: 'width 0.3s' }} />
+                </div>
+              </div>
+
+              <Row className="g-2">
+                <Col xs={6}>
+                  <div
+                    onClick={() => setShowExpenseModal(true)}
+                    onMouseEnter={() => setSpentCardHovered(true)}
+                    onMouseLeave={() => setSpentCardHovered(false)}
+                    style={{
+                      padding: '12px', backgroundColor: '#f6ffed', borderRadius: '10px', textAlign: 'center',
+                      cursor: 'pointer', transition: 'all 0.25s ease',
+                      transform: spentCardHovered ? 'scale(1.05)' : 'scale(1)',
+                      boxShadow: spentCardHovered ? '0 4px 12px rgba(82, 196, 26, 0.25)' : 'none',
+                      border: spentCardHovered ? '1px solid #b7eb8f' : '1px solid transparent'
+                    }}
+                  >
+                    <div style={{ fontSize: '11px', color: '#52c41a', marginBottom: '4px' }}>已使用 {spentCardHovered ? '📋' : ''}</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#52c41a' }}>¥{budgetSpent.toLocaleString()}</div>
+                  </div>
+                </Col>
+                <Col xs={6}>
+                  <div style={{ padding: '12px', backgroundColor: budgetBalance < 0 ? '#fff1f0' : '#e6f7ff', borderRadius: '10px', textAlign: 'center', border: '1px solid transparent' }}>
+                    <div style={{ fontSize: '11px', color: budgetBalance < 0 ? '#ff4d4f' : '#1890ff', marginBottom: '4px' }}>剩余</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: budgetBalance < 0 ? '#ff4d4f' : '#1890ff' }}>¥{budgetBalance.toLocaleString()}</div>
+                  </div>
+                </Col>
+              </Row>
+
+              {/* Apply for Reimbursement Button */}
+              <button
+                onClick={() => navigate(`/project/${id}/reimburse`)}
+                style={{
+                  width: '100%', marginTop: '16px', padding: '10px 0', backgroundColor: '#eff6ff',
+                  color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '10px', fontSize: '14px',
+                  fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: '8px', transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#dbeafe'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#eff6ff'; }}
+              >
+                <FaFileAlt size={14} />
+                申请报销
+              </button>
+            </Card.Body>
+          </Card>
+
+          {/* Team Members Card */}
+          <Card className="mt-4 animate-fade-in-up" style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+            <Card.Body style={{ padding: 'clamp(16px, 2vw, 24px)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h5 style={{ fontSize: '18px', fontWeight: '600', color: '#333', margin: 0 }}>
+                  <FaUsers style={{ marginRight: '10px', color: '#722ed1' }} />团队成员
+                </h5>
+                {project.currentUserRole === 'captain' && (
+                  <CommonButton variant="outline-primary" onClick={handleOpenAddModal}
+                    style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '16px' }}>
+                    <FaPlus style={{ marginRight: '4px' }} />添加
+                  </CommonButton>
+                )}
+              </div>
+
+              {teamMembers.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#bfbfbf' }}>
+                  <FaUsers size={28} style={{ marginBottom: '8px', opacity: 0.4 }} />
+                  <div style={{ fontSize: '13px' }}>暂无团队成员</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {teamMembers.map(member => {
+                    const roleConfig = member.role === 'captain'
+                      ? { label: '队长', bg: '#fff7e6', color: '#d48806', border: '#ffe58f', avatarColor: '#faad14' }
+                      : member.role === 'advisor'
+                        ? { label: '指导老师', bg: '#f0f5ff', color: '#2f54eb', border: '#adc6ff', avatarColor: '#597ef7' }
+                        : { label: '成员', bg: '#f6ffed', color: '#389e0d', border: '#b7eb8f', avatarColor: '#bfbfbf' };
+                    return (
+                      <div key={member.id} onClick={() => handleMemberClick(member)}
+                        style={{
+                          display: 'flex', alignItems: 'center', padding: '14px 16px', borderRadius: '12px',
+                          backgroundColor: '#ffffff', cursor: 'pointer', transition: 'all 0.25s ease',
+                          gap: '14px', border: '1px solid #e8e8e8',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                          e.currentTarget.style.borderColor = '#d6d6d6';
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+                          e.currentTarget.style.borderColor = '#e8e8e8';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}>
+                        <div style={{
+                          width: '40px', height: '40px', borderRadius: '50%',
+                          background: `linear-gradient(135deg, ${roleConfig.avatarColor}22, ${roleConfig.avatarColor}44)`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
+                          <FaUserCircle size={28} style={{ color: roleConfig.avatarColor }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>
+                              {member.name}
+                            </span>
+                            {member.role === 'captain' && <FaCrown style={{ color: '#faad14', fontSize: '13px' }} />}
+                          </div>
+                          <span style={{
+                            fontSize: '11px', fontWeight: '500', padding: '2px 8px', borderRadius: '10px',
+                            backgroundColor: roleConfig.bg, color: roleConfig.color, border: `1px solid ${roleConfig.border}`,
+                            display: 'inline-block'
+                          }}>
+                            {roleConfig.label}
+                          </span>
+                        </div>
+                        <FaPencilAlt size={13} style={{ color: '#d0d0d0', flexShrink: 0, transition: 'color 0.2s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#1890ff'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = '#d0d0d0'; }} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+
+          {/* Audit Logs Card */}
+          <Card className="mt-4 animate-fade-in-up" style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+            <Card.Body style={{ padding: 'clamp(16px, 2vw, 24px)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h5 style={{ fontSize: '18px', fontWeight: '600', color: '#333', margin: 0 }}>
+                  <FaHistory style={{ marginRight: '10px', color: '#13c2c2' }} />操作日志
+                </h5>
+                <span onClick={() => navigate(`/project/${id}/logs`)}
+                  style={{ fontSize: '13px', color: '#1890ff', cursor: 'pointer' }}>
+                  查看全部 →
+                </span>
+              </div>
+              {logsLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#8c8c8c' }}>
+                  <Spinner animation="border" size="sm" />
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#bfbfbf', fontSize: '13px' }}>暂无操作记录</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {auditLogs.map(log => {
+                    const { action, target } = formatLogAction(log);
+                    return (
+                      <div key={log.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#13c2c2', marginTop: '6px', flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ color: '#333', fontWeight: '500' }}>{log.user_name || '系统'}</span>
+                          <span style={{ color: '#666', margin: '0 4px' }}>{action}</span>
+                          {target && <span style={{ color: '#1890ff' }}>{target}</span>}
+                          <div style={{ fontSize: '11px', color: '#bfbfbf', marginTop: '2px' }}>{formatLogTime(log.created_at)}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+
+        </Col>
+      </Row>
+
+      {/* ─── Member Detail Modal ─── */}
+      <Modal show={showMemberModal} onHide={() => setShowMemberModal(false)} centered>
+        <Modal.Header closeButton={false} style={{ border: 'none', paddingBottom: '0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Modal.Title style={{ fontSize: '18px', fontWeight: '600' }}>
+            {isEditing ? '编辑成员' : '成员详情'}
+          </Modal.Title>
+          <div onClick={() => setShowMemberModal(false)} style={{ cursor: 'pointer', marginLeft: 'auto' }}><FaTimes size={18} color="#8c8c8c" /></div>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '24px' }}>
+          {selectedMember && (
+            <>
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <FaUserCircle size={56} style={{ color: selectedMember.role === 'captain' ? '#faad14' : '#bfbfbf' }} />
+                <div style={{ fontSize: '18px', fontWeight: '600', marginTop: '8px' }}>{selectedMember.name}</div>
+              </div>
+              <FormField icon={FaUserCircle} iconColor="#1890ff" label="姓名" value={isEditing ? editFormData.name : selectedMember.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })} placeholder="姓名" disabled={!isEditing} />
+              <FormField icon={FaCrown} iconColor="#faad14" label="角色" value={isEditing ? (editFormData.role === 'captain' ? '队长' : editFormData.role === 'advisor' ? '指导老师' : '成员') : (selectedMember.role === 'captain' ? '队长' : selectedMember.role === 'advisor' ? '指导老师' : '成员')}
+                disabled={true} />
+              {isEditing && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', paddingLeft: '30px' }}>
+                  {['captain', 'member', 'advisor'].map(r => (
+                    <span key={r} onClick={() => handleRoleChange(r)}
+                      style={{ padding: '4px 12px', borderRadius: '12px', fontSize: '12px', cursor: 'pointer', backgroundColor: editFormData.role === r ? '#1890ff' : '#f0f0f0', color: editFormData.role === r ? '#fff' : '#666' }}>
+                      {r === 'captain' ? '队长' : r === 'advisor' ? '指导老师' : '成员'}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <FormField icon={FaGraduationCap} iconColor="#722ed1" label="班级" value={isEditing ? editFormData.className : selectedMember.className}
+                onChange={(e) => setEditFormData({ ...editFormData, className: e.target.value })} placeholder="班级" disabled={!isEditing} />
+              <FormField icon={FaIdCard} iconColor="#13c2c2" label="学号" value={isEditing ? editFormData.studentId : selectedMember.studentId}
+                onChange={(e) => setEditFormData({ ...editFormData, studentId: e.target.value })} placeholder="学号" disabled={!isEditing} />
+              <FormField icon={FaEnvelope} iconColor="#eb2f96" label="邮箱" value={isEditing ? editFormData.email : selectedMember.email}
+                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })} placeholder="邮箱" disabled={!isEditing} />
+              <FormField icon={FaPhone} iconColor="#52c41a" label="电话" value={isEditing ? editFormData.phone : selectedMember.phone}
+                onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })} placeholder="电话" disabled={!isEditing} />
+              <FormField icon={FaBuilding} iconColor="#faad14" label="实验室" value={isEditing ? editFormData.lab : selectedMember.lab}
+                onChange={(e) => setEditFormData({ ...editFormData, lab: e.target.value })} placeholder="实验室" disabled={!isEditing} />
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer style={{ border: 'none', justifyContent: 'space-between' }}>
+          {isEditing ? (
+            <>
+              {project.currentUserRole === 'captain' ? (
+                <CommonButton variant="outline-danger" onClick={handleDeleteMember}>删除成员</CommonButton>
+              ) : (
+                <div />
+              )}
+              <div style={{ display: 'flex', gap: '8px', marginLeft: project.currentUserRole === 'captain' ? '0' : 'auto' }}>
+                <CommonButton variant="secondary" onClick={handleCancelEdit}>取消</CommonButton>
+                <CommonButton variant="primary" onClick={handleSaveEdit}>保存</CommonButton>
+              </div>
+            </>
+          ) : (
+            <>
+              <div />
+              <CommonButton variant="primary" onClick={handleStartEdit}><FaPencilAlt style={{ marginRight: '6px' }} />编辑</CommonButton>
+            </>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* ─── Add Member Modal ─── */}
+      <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered>
+        <Modal.Header closeButton={false} style={{ border: 'none', paddingBottom: '0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Modal.Title style={{ fontSize: '18px', fontWeight: '600' }}>添加成员</Modal.Title>
+          <div onClick={() => setShowAddModal(false)} style={{ cursor: 'pointer', marginLeft: 'auto' }}><FaTimes size={18} color="#8c8c8c" /></div>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '24px' }}>
+          
+          <div style={{ position: 'relative', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+              <FaIdCard style={{ color: '#1890ff', marginRight: '12px', fontSize: '18px', marginTop: '4px' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '4px' }}>搜索用户 (学号/姓名) *</div>
+                <Form.Control 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={handleSearchChange} 
+                  onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+                  placeholder="请输入学号或姓名搜索" 
+                  style={{ fontSize: '14px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #d9d9d9' }} 
+                />
+                
+                {isSearching && (
+                  <div style={{ position: 'absolute', right: '12px', top: '32px' }}>
+                    <Spinner animation="border" size="sm" style={{ color: '#1890ff' }} />
+                  </div>
+                )}
+                
+                {showDropdown && searchResults.length > 0 && (
+                  <div style={{ 
+                    position: 'absolute', top: '100%', left: '30px', right: 0, zIndex: 1000,
+                    marginTop: '4px', backgroundColor: '#fff', borderRadius: '8px', 
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid #f0f0f0',
+                    maxHeight: '200px', overflowY: 'auto'
+                  }}>
+                    {searchResults.map(user => (
+                      <div 
+                        key={user.id}
+                        onClick={() => handleSelectUser(user)}
+                        style={{ 
+                          padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+                      >
+                        <span style={{ fontWeight: '500', color: '#333' }}>{user.name}</span>
+                        <span style={{ fontSize: '12px', color: '#8c8c8c' }}>学号: {user.student_id}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {showDropdown && searchResults.length === 0 && !isSearching && searchQuery.trim() && (
+                  <div style={{ 
+                    position: 'absolute', top: '100%', left: '30px', right: 0, zIndex: 1000,
+                    marginTop: '4px', backgroundColor: '#fff', borderRadius: '8px', 
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid #f0f0f0',
+                    padding: '12px', textAlign: 'center', color: '#8c8c8c', fontSize: '13px'
+                  }}>
+                    未找到匹配的用户
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '16px', paddingLeft: '30px' }}>
+            <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '6px' }}>角色</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {['member', 'advisor'].map(r => (
+                <span key={r} onClick={() => setNewMemberRole(r)}
+                  style={{ padding: '6px 16px', borderRadius: '16px', fontSize: '13px', cursor: 'pointer', backgroundColor: newMemberRole === r ? '#1890ff' : '#f0f0f0', color: newMemberRole === r ? '#fff' : '#666' }}>
+                  {r === 'advisor' ? '指导老师' : '成员'}
+                </span>
+              ))}
+            </div>
+            <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '12px' }}>
+              注：添加成员现在会直接关联系统中的真实用户账号。添加后，该成员登录系统即可在“我的项目”中看到此项目。
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer style={{ border: 'none' }}>
+          <CommonButton variant="secondary" onClick={() => setShowAddModal(false)}>取消</CommonButton>
+          <CommonButton variant="primary" onClick={handleAddMember} disabled={!newMemberId}>添加绑定</CommonButton>
+        </Modal.Footer>
+      </Modal>
+
+      {/* ─── Expense Modal ─── */}
+      <ExpenseModal
+        show={showExpenseModal}
+        onHide={() => { setShowExpenseModal(false); fetchExpenseTotal(); fetchLogs(); }}
+        projectId={id}
+        budgetTotal={budgetTotal}
+        onExpenseChange={(newTotal) => setBudgetSpent(newTotal)}
+      />
+
+      {/* ─── Add Category Modal ─── */}
+      <Modal show={showCategoryModal} onHide={() => setShowCategoryModal(false)} centered size="sm">
+        <Modal.Header closeButton={false} style={{ border: 'none', paddingBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Modal.Title style={{ fontSize: '18px', fontWeight: '600' }}>新建分类</Modal.Title>
+          <div onClick={() => setShowCategoryModal(false)} style={{ cursor: 'pointer', marginLeft: 'auto' }}><FaTimes size={18} color="#8c8c8c" /></div>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '24px' }}>
+          <Form.Control
+            autoFocus
+            type="text"
+            placeholder="请输入分类名称"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmAddCategory(); }}
+            style={{ fontSize: '14px', padding: '10px 14px', borderRadius: '10px', border: '1px solid #d9d9d9' }}
+          />
+        </Modal.Body>
+        <Modal.Footer style={{ border: 'none' }}>
+          <CommonButton variant="secondary" onClick={() => setShowCategoryModal(false)}>取消</CommonButton>
+          <CommonButton variant="primary" onClick={handleConfirmAddCategory} disabled={!newCategoryName.trim()}>确认</CommonButton>
+        </Modal.Footer>
+      </Modal>
+
+      <style>{`
+        @keyframes pulse-now {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+      `}</style>
+    </Container>
+  );
+};
+
+export default ProjectDashboard;
